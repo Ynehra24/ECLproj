@@ -3,7 +3,7 @@ export default function Home() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
       <main className="min-h-screen bg-slate-900 flex items-center justify-center">
-      <div className="bg-slate-800 text-white p-8 rounded-2xl shadow-xl w-full max-w-xl">
+      <div className="bg-slate-800 text-white p-8 rounded-2xl shadow-xl w-full">
         <h1 className="text-3xl font-bold mb-4">
           Training Simulator
         </h1>
