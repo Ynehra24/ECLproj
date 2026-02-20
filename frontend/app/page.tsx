@@ -1,19 +1,1621 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Inter } from "next/font/google";
+
+const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
+
+type Question = {
+  type: "MCQ" | "Fill in the Blanks" | "Short Answer" | "Coding";
+  scenario: string;
+  options?: string[];
+  correctIndex?: number;
+  answer?: string;
+  hint?: string;
+  reason?: string;
+
+  // ✅ Short Answer support
+  keywords?: string[];
+  rubric?: string[];
+
+  // ✅ Coding support (token-based live checks)
+  language?: string;
+  starterCode?: string;
+  requiredTokens?: string[];
+};
+
+type BackendPreview = {
+  apiLoad: number;
+  apiErrors: number;
+  cacheHit: number;
+  dbConn: number;
+  qps: number;
+  latency: number;
+};
+
+type FrontendPreview = {
+  fps: number;
+  bundleKB: number;
+  hydrationMs: number;
+  reRenders: number;
+};
+
+type MLPreview = {
+  trainLoss: number;
+  valLoss: number;
+  epoch: number;
+  overfitRisk: number;
+};
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
+
 export default function Home() {
+  const [showIntro, setShowIntro] = useState(true);
   return (
-    <main className="min-h-screen bg-neutral-950 px-8 py-12 flex items-center justify-center">
-      <div className="bg-neutral-900 text-neutral-100 p-8 rounded-2xl shadow-xl w-full max-w-6xl mx-auto">
-        <h1 className="text-3xl font-semibold mb-4 text-center">
-          Training Simulator
-        </h1>
+    <div className={`${inter.variable} font-sans`}>
+      <AnimatePresence mode="wait">
+        {showIntro ? <IntroScreen key="intro" onStart={() => setShowIntro(false)} /> : <MainApp key="main" />}
+      </AnimatePresence>
+    </div>
+  );
+}
 
-        <p className="text-neutral-400 mb-6 text-center">
-          Generate role-based training scenarios dynamically.
-        </p>
-
-        <button className="bg-orange-500 hover:bg-orange-600 px-5 py-2 rounded-lg transition transform hover:scale-105 block mx-auto font-medium">
-          Generate Scenario
-        </button>
+function IntroScreen({ onStart }: { onStart: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 1.02 }}
+      transition={{ duration: 0.6 }}
+      className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center relative overflow-hidden"
+    >
+      <div className="absolute w-[600px] h-[600px] bg-orange-500/10 blur-3xl rounded-full" />
+      <div className="flex flex-col items-center gap-6 relative z-10">
+        <motion.img
+          src="/ECL_LOGO_Sage.png"
+          alt="SAGE Logo"
+          initial={{ opacity: 0, y: 30, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.8 }}
+          className="w-72 md:w-[400px] drop-shadow-2xl"
+        />
+        <motion.button
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={onStart}
+          className="bg-orange-500 hover:bg-orange-600 px-7 py-3 rounded-2xl font-semibold shadow-md hover:shadow-lg tracking-wide"
+        >
+          Get Started
+        </motion.button>
       </div>
-    </main>
+    </motion.div>
+  );
+}
+
+function MainApp() {
+  const SUBJECTS: { name: string; items: string[] }[] = [
+    {
+      name: "Frontend",
+      items: [
+        "React",
+        "Next.js",
+        "TypeScript",
+        "JavaScript",
+        "CSS",
+        "TailwindCSS",
+        "Accessibility",
+        "Web Performance",
+        "State Management",
+        "Redux",
+        "Zustand",
+        "MobX",
+        "Testing Library",
+        "Jest",
+        "Playwright",
+        "Animations",
+        "Framer Motion",
+        "SSR",
+        "CSR",
+        "Hydration",
+        "Code Splitting",
+        "Memoization",
+        "WebSockets",
+        "Service Workers",
+        "PWA",
+        "i18n",
+        "Form Handling",
+        "React Query",
+        "TanStack Query",
+        "Vite",
+        "Webpack",
+        "Babel",
+        "Storybook",
+        "Design Systems",
+        "Component Architecture",
+        "Hooks",
+        "Context API",
+      ],
+    },
+    {
+      name: "Backend",
+      items: [
+        "APIs",
+        "REST",
+        "GraphQL",
+        "gRPC",
+        "Microservices",
+        "Monolith",
+        "Caching",
+        "Redis",
+        "Queues",
+        "RabbitMQ",
+        "Kafka",
+        "Databases",
+        "PostgreSQL",
+        "MySQL",
+        "MongoDB",
+        "ORM",
+        "Prisma",
+        "SQLAlchemy",
+        "Auth",
+        "OAuth2",
+        "JWT",
+        "Rate Limiting",
+        "Circuit Breaker",
+        "Observability",
+        "Metrics",
+        "Tracing",
+        "Logging",
+        "Testing",
+        "Pagination",
+        "Idempotency",
+        "Schema Migrations",
+        "Multi-tenancy",
+        "API Gateway",
+        "Service Discovery",
+      ],
+    },
+    {
+      name: "DevOps",
+      items: [
+        "Docker",
+        "Kubernetes",
+        "Helm",
+        "CI/CD",
+        "GitHub Actions",
+        "Terraform",
+        "Ansible",
+        "Prometheus",
+        "Grafana",
+        "ArgoCD",
+        "Autoscaling",
+        "Blue-Green",
+        "Canary",
+        "Load Balancing",
+        "Nginx",
+        "Istio",
+        "Linkerd",
+        "Secrets",
+        "ConfigMaps",
+        "RBAC",
+        "Ingress",
+        "EKS",
+        "GKE",
+        "AKS",
+        "Cost Optimization",
+      ],
+    },
+    {
+      name: "System Design",
+      items: [
+        "Scalability",
+        "Availability",
+        "Consistency",
+        "CAP Theorem",
+        "Sharding",
+        "Replication",
+        "Leader Election",
+        "Distributed Caching",
+        "CDN",
+        "Global Traffic",
+        "Failover",
+        "Backpressure",
+        "Rate Limiting",
+        "Event Sourcing",
+        "CQRS",
+        "Read/Write Splitting",
+        "Geo-partitioning",
+        "Hot Partitions",
+      ],
+    },
+    {
+      name: "Machine Learning",
+      items: [
+        "Model Training",
+        "Data Preprocessing",
+        "Feature Engineering",
+        "Cross Validation",
+        "Regularization",
+        "Hyperparameter Tuning",
+        "Overfitting",
+        "Underfitting",
+        "Model Serving",
+        "Batch Inference",
+        "Streaming Inference",
+        "Embeddings",
+        "Vector Databases",
+        "Evaluation",
+        "Drift Detection",
+        "A/B Testing",
+        "Monitoring",
+        "Retraining",
+      ],
+    },
+    {
+      name: "Mobile",
+      items: [
+        "React Native",
+        "Swift",
+        "Kotlin",
+        "Android",
+        "iOS",
+        "Flutter",
+        "Performance",
+        "Offline Sync",
+        "Push Notifications",
+        "Background Tasks",
+        "Deep Links",
+        "App Store",
+        "Play Store",
+        "Crash Reporting",
+      ],
+    },
+    {
+      name: "Security",
+      items: [
+        "OWASP",
+        "Input Validation",
+        "XSS",
+        "CSRF",
+        "SQL Injection",
+        "Secrets Management",
+        "Vulnerability Scanning",
+        "Penetration Testing",
+        "Threat Modeling",
+        "Audit Logging",
+        "Encryption",
+        "TLS",
+        "mTLS",
+        "SSO",
+      ],
+    },
+    {
+      name: "Data Engineering",
+      items: [
+        "ETL",
+        "ELT",
+        "Batch Processing",
+        "Stream Processing",
+        "Spark",
+        "Flink",
+        "Airflow",
+        "dbt",
+        "Lakehouse",
+        "Delta Lake",
+        "Data Quality",
+        "Data Lineage",
+        "Data Catalog",
+        "Parquet",
+        "Iceberg",
+        "Hudi",
+      ],
+    },
+  ];
+
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const [openSections, setOpenSections] = useState<string[]>([]);
+  const [questionTypes, setQuestionTypes] = useState<string[]>(["MCQ"]);
+  const [attemptsLeft, setAttemptsLeft] = useState(2);
+  const [lastWrongIndex, setLastWrongIndex] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState<{ status: "idle" | "correct" | "wrong"; hint?: string }>({ status: "idle" });
+  const [blankInput, setBlankInput] = useState("");
+
+  const [shortAnswer, setShortAnswer] = useState("");
+  const [shortLineOk, setShortLineOk] = useState<boolean[]>([false, false, false, false]);
+  const [shortScore01, setShortScore01] = useState(0);
+
+  const [code, setCode] = useState("");
+  const [codeMatched, setCodeMatched] = useState<string[]>([]);
+  const [codeMissing, setCodeMissing] = useState<string[]>([]);
+  const [codeScore01, setCodeScore01] = useState(0);
+
+  const [backend, setBackend] = useState<BackendPreview>({
+    apiLoad: 0.45,
+    apiErrors: 0.015,
+    cacheHit: 0.4,
+    dbConn: 40,
+    qps: 150,
+    latency: 50,
+  });
+  const [frontend, setFrontend] = useState<FrontendPreview>({ fps: 55, bundleKB: 420, hydrationMs: 180, reRenders: 3 });
+  const [ml, setML] = useState<MLPreview>({ trainLoss: 0.62, valLoss: 0.78, epoch: 3, overfitRisk: 0.35 });
+
+  const [previewControls, setPreviewControls] = useState({
+    backendTraffic: 1,
+    enableCache: true,
+    useReadReplicas: false,
+    enableCodeSplit: true,
+    enableMemo: true,
+    mlReg: true,
+    mlAug: false,
+  });
+
+  // Track previous values so we can highlight changes (orange)
+  const prevBackendRef = useRef<BackendPreview>(backend);
+  const prevFrontendRef = useRef<FrontendPreview>(frontend);
+  const prevMLRef = useRef<MLPreview>(ml);
+
+  useEffect(() => {
+    prevBackendRef.current = backend;
+  }, [backend]);
+  useEffect(() => {
+    prevFrontendRef.current = frontend;
+  }, [frontend]);
+  useEffect(() => {
+    prevMLRef.current = ml;
+  }, [ml]);
+
+  // Resizable split between question and preview
+  const [leftPct, setLeftPct] = useState(58);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  const startDrag = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragging(true);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  };
+  const onDrag = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!dragging || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const pct = Math.min(78, Math.max(30, (x / rect.width) * 100));
+    setLeftPct(Math.round(pct));
+  };
+  const endDrag = () => {
+    setDragging(false);
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+  };
+
+  const toggleSubject = (subject: string) => {
+    setSelectedSubjects((prev) => (prev.includes(subject) ? prev.filter((s) => s !== subject) : [...prev, subject]));
+  };
+  const toggleSection = (section: string) => {
+    setOpenSections((prev) => (prev.includes(section) ? prev.filter((s) => s !== section) : [...prev, section]));
+  };
+  const toggleQuestionType = (type: string) => {
+    setQuestionTypes((prev) => (prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]));
+  };
+
+  const resetQuestionState = () => {
+    setAttemptsLeft(2);
+    setLastWrongIndex(null);
+    setFeedback({ status: "idle" });
+    setBlankInput("");
+
+    // ✅ reset new states
+    setShortAnswer("");
+    setShortLineOk([false, false, false, false]);
+    setShortScore01(0);
+
+    setCode("");
+    setCodeMatched([]);
+    setCodeMissing([]);
+    setCodeScore01(0);
+  };
+
+  const currentTopic = useMemo(() => {
+    const hasBackend = selectedSubjects.some((s) => ["APIs", "Databases", "Caching", "Redis", "Kafka"].includes(s));
+    const hasFrontend = selectedSubjects.some((s) => ["React", "CSS", "Web Performance", "SSR", "Hydration"].includes(s));
+    const hasML = selectedSubjects.some((s) => ["Model Training", "Regularization", "Evaluation"].includes(s));
+    if (hasBackend) return "backend";
+    if (hasFrontend) return "frontend";
+    if (hasML) return "ml";
+    return "generic";
+  }, [selectedSubjects]);
+
+  useEffect(() => {
+    const hasBackend = selectedSubjects.some((s) => ["APIs", "Databases", "Caching", "Redis", "Kafka"].includes(s));
+    const hasFrontend = selectedSubjects.some((s) => ["React", "CSS", "Web Performance", "SSR", "Hydration"].includes(s));
+    const hasML = selectedSubjects.some((s) => ["Model Training", "Regularization", "Evaluation"].includes(s));
+    if (hasBackend) {
+      setBackend({
+        apiLoad: 0.5,
+        apiErrors: 0.02,
+        cacheHit: previewControls.enableCache ? 0.45 : 0.2,
+        dbConn: previewControls.useReadReplicas ? 50 : 60,
+        qps: 180,
+        latency: previewControls.useReadReplicas ? 48 : 62,
+      });
+    }
+    if (hasFrontend) {
+      setFrontend({
+        fps: 58,
+        bundleKB: previewControls.enableCodeSplit ? 360 : 520,
+        hydrationMs: previewControls.enableMemo ? 160 : 220,
+        reRenders: previewControls.enableMemo ? 2 : 5,
+      });
+    }
+    if (hasML) {
+      setML({
+        trainLoss: 0.55,
+        valLoss: previewControls.mlReg ? 0.62 : 0.78,
+        epoch: 1,
+        overfitRisk: previewControls.mlReg ? 0.25 : 0.45,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSubjects, previewControls.enableCache, previewControls.useReadReplicas, previewControls.enableCodeSplit, previewControls.enableMemo, previewControls.mlReg]);
+
+  const generateScenario = async () => {
+    if (selectedSubjects.length === 0) {
+      setQuestions([]);
+      setCurrentIdx(0);
+      resetQuestionState();
+      return;
+    }
+  
+    setLoading(true);
+  
+    try {
+      const response = await fetch(`${API_BASE}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subjects: selectedSubjects,
+          types: questionTypes.filter((t) =>
+            ["MCQ", "Fill in the Blanks", "Short Answer", "Coding"].includes(t)
+          ),
+          count: 5,
+        }),
+      });
+  
+      const data = await response.json();
+  
+      const rawQs = Array.isArray(data.questions) ? data.questions : [];
+  
+      const qs: Question[] = rawQs.map((q: any) => {
+        const safeType =
+          q.type === "MCQ" ||
+          q.type === "Fill in the Blanks" ||
+          q.type === "Short Answer" ||
+          q.type === "Coding"
+            ? q.type
+            : "MCQ";
+  
+        return {
+          ...q,
+          type: safeType,
+        };
+      });
+  
+      setQuestions(qs);
+      setCurrentIdx(0);
+      resetQuestionState();
+    } catch (error) {
+      console.error("Error fetching questions:", error);
+      setQuestions([]);
+      setCurrentIdx(0);
+      resetQuestionState();
+    }
+  
+    setLoading(false);
+  };
+  
+
+  const current = questions[currentIdx];
+
+  useEffect(() => {
+    if (!current || current.type !== "Coding") return;
+  
+    const req = (current.requiredTokens || [])
+      .map((t) => t.trim())
+      .filter(Boolean);
+  
+    const src = code || "";
+  
+    const matched: string[] = [];
+    const missing: string[] = [];
+  
+    for (const t of req) {
+      if (src.toLowerCase().includes(t.toLowerCase())) {
+        matched.push(t);
+      } else {
+        missing.push(t);
+      }
+    }
+  
+    const score = req.length ? matched.length / req.length : 0;
+  
+    setCodeMatched(matched);
+    setCodeMissing(missing);
+    setCodeScore01(score);
+  }, [code, current]);
+  
+  
+
+  const applyOutcome = (kind: "correct" | "wrongHint" | "wrongFinal") => {
+  const hasBackend = currentTopic === "backend";
+  const hasFrontend = currentTopic === "frontend";
+  const hasML = currentTopic === "ml";
+
+    if (hasBackend) {
+      setBackend((b) => {
+        const loadDelta = kind === "correct" ? -0.08 : kind === "wrongHint" ? 0.06 : 0.12;
+        const errDelta = kind === "correct" ? -0.01 : kind === "wrongHint" ? 0.008 : 0.015;
+        const cacheDelta = previewControls.enableCache ? (kind === "correct" ? 0.12 : kind === "wrongFinal" ? -0.18 : -0.08) : 0;
+        const connDelta = previewControls.useReadReplicas ? (kind === "correct" ? -8 : 10) : kind === "correct" ? -4 : 12;
+        const qpsDelta = kind === "correct" ? 25 : -20;
+        const latDelta = kind === "correct" ? -10 : kind === "wrongHint" ? 8 : 18;
+        return {
+          apiLoad: Math.min(1, Math.max(0.05, b.apiLoad + loadDelta * previewControls.backendTraffic)),
+          apiErrors: Math.min(0.35, Math.max(0, b.apiErrors + errDelta)),
+          cacheHit: Math.min(0.98, Math.max(0.02, b.cacheHit + cacheDelta)),
+          dbConn: Math.min(260, Math.max(8, b.dbConn + connDelta)),
+          qps: Math.min(500, Math.max(10, b.qps + qpsDelta)),
+          latency: Math.min(300, Math.max(10, b.latency + latDelta)),
+        };
+      });
+    }
+
+    if (hasFrontend) {
+      setFrontend((f) => {
+        const fpsDelta = kind === "correct" ? 6 : kind === "wrongHint" ? -4 : -8;
+        const bundleDelta = kind === "correct" ? -40 : kind === "wrongHint" ? 30 : 60;
+        const hydrateDelta = kind === "correct" ? -25 : kind === "wrongFinal" ? 40 : 18;
+        const renderDelta = kind === "correct" ? -1 : kind === "wrongFinal" ? 2 : 1;
+        return {
+          fps: Math.min(120, Math.max(20, f.fps + fpsDelta)),
+          bundleKB: Math.max(120, f.bundleKB + (previewControls.enableCodeSplit ? bundleDelta : bundleDelta / 2)),
+          hydrationMs: Math.min(800, Math.max(40, f.hydrationMs + (previewControls.enableMemo ? hydrateDelta : hydrateDelta / 2))),
+          reRenders: Math.min(20, Math.max(0, f.reRenders + renderDelta)),
+        };
+      });
+    }
+
+    if (hasML) {
+      setML((m) => {
+        const tl = kind === "correct" ? -0.06 : 0.04;
+        const vl = kind === "correct" ? -0.05 : 0.06;
+        const of = kind === "correct" ? -0.06 : kind === "wrongFinal" ? 0.12 : 0.08;
+        return {
+          trainLoss: Math.max(0.01, m.trainLoss + tl),
+          valLoss: Math.max(0.01, m.valLoss + (previewControls.mlReg ? vl / 2 : vl)),
+          epoch: m.epoch + (kind === "correct" ? 1 : 0),
+          overfitRisk: Math.min(1, Math.max(0, m.overfitRisk + of)),
+        };
+      });
+    }
+  };
+
+  const onSelectOption = (idx: number) => {
+    if (!current || current.type !== "MCQ") return;
+    if (attemptsLeft <= 0 || feedback.status === "correct") return;
+    const correct = current.correctIndex ?? 0;
+    if (idx === correct) {
+      setFeedback({ status: "correct", hint: "Good choice. Preview metrics improved." });
+      setLastWrongIndex(null);
+      applyOutcome("correct");
+    } else {
+      const remaining = attemptsLeft - 1;
+      setAttemptsLeft(remaining);
+      setLastWrongIndex(idx);
+      if (remaining <= 0) {
+        setFeedback({
+          status: "wrong",
+          hint: `Correct: ${current.options?.[correct]}\nReason: ${current.reason || "Best fits the scenario constraints."}`,
+        });
+        applyOutcome("wrongFinal");
+      } else {
+        setFeedback({ status: "wrong", hint: current.hint || "Re-read the scenario and identify key constraints." });
+        applyOutcome("wrongHint");
+      }
+    }
+  };
+
+  const onSubmitBlank = () => {
+    if (!current || current.type !== "Fill in the Blanks") return;
+    if (attemptsLeft <= 0 || feedback.status === "correct") return;
+
+    const expected = (current.answer || "").trim();
+    const got = blankInput.trim();
+
+    const isCorrect = got.toLowerCase() === expected.toLowerCase();
+
+    if (isCorrect) {
+      setFeedback({
+        status: "correct",
+        hint: `You entered: ${got}\nResult: Correct.\n\nReason: ${current.reason || ""}`,
+      });
+      applyOutcome("correct");
+    } else {
+      const remaining = attemptsLeft - 1;
+      setAttemptsLeft(remaining);
+      if (remaining <= 0) {
+        setFeedback({
+          status: "wrong",
+          hint: `You entered: ${got}\nExpected: ${expected}\n\nReason: ${current.reason || ""}`,
+        });
+        applyOutcome("wrongFinal");
+      } else {
+        setFeedback({
+          status: "wrong",
+          hint: `You entered: ${got}\nResult: Not quite.\nHint: ${current.hint || ""}`,
+        });
+        applyOutcome("wrongHint");
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!current || current.type !== "Short Answer") return;
+
+    const kws = (current.keywords || []).map((k) => k.toLowerCase()).filter(Boolean);
+    const lines = shortAnswer.split("\n").slice(0, 4);
+
+    const nextLineOk = [false, false, false, false];
+    let hits = 0;
+
+    for (let i = 0; i < 4; i++) {
+      const line = (lines[i] || "").toLowerCase();
+      if (!line.trim()) continue;
+
+      const lineHits = kws.filter((k) => line.includes(k)).length;
+      if (lineHits > 0) nextLineOk[i] = true;
+      hits += lineHits;
+    }
+
+    const denom = Math.max(1, kws.length);
+    const score01 = Math.min(1, hits / denom);
+
+    setShortLineOk(nextLineOk);
+    setShortScore01(score01);
+  }, [shortAnswer, current]);
+
+  const onSubmitShortAnswer = () => {
+    if (!current || current.type !== "Short Answer") return;
+    if (attemptsLeft <= 0 || feedback.status === "correct") return;
+
+    const ok = shortScore01 >= 0.6;
+
+    if (ok) {
+      setFeedback({
+        status: "correct",
+        hint: `Looks good.\n\nRubric:\n- ${(current.rubric || []).join("\n- ")}`,
+      });
+      applyOutcome("correct");
+    } else {
+      const remaining = attemptsLeft - 1;
+      setAttemptsLeft(remaining);
+      if (remaining <= 0) {
+        setFeedback({
+          status: "wrong",
+          hint: `Missing key points.\nExpected keywords: ${(current.keywords || []).join(", ")}\n\nRubric:\n- ${(current.rubric || []).join(
+            "\n- "
+          )}`,
+        });
+        applyOutcome("wrongFinal");
+      } else {
+        setFeedback({
+          status: "wrong",
+          hint: `Try to include: ${(current.keywords || []).slice(0, 6).join(", ")}\n(Answer max 4 lines)`,
+        });
+        applyOutcome("wrongHint");
+      }
+    }
+  };
+
+  // ✅ Coding: live token checks + drive preview
+  useEffect(() => {
+    if (!current || current.type !== "Coding") return;
+
+    const req = (current.requiredTokens || []).map((t) => t.trim()).filter(Boolean);
+    const src = code || "";
+
+    const matched: string[] = [];
+    const missing: string[] = [];
+
+    for (const t of req) {
+      if (src.toLowerCase().includes(t.toLowerCase())) matched.push(t);
+      else missing.push(t);
+    }
+
+    const s01 = req.length ? matched.length / req.length : 0;
+
+    setCodeMatched(matched);
+    setCodeMissing(missing);
+    setCodeScore01(s01);
+
+    // keep it gentle: only improve when strong signal, otherwise "wrongHint"
+    if (s01 >= 0.85) applyOutcome("correct");
+    else applyOutcome("wrongHint");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, current]);
+
+  const gotoPrev = () => {
+    if (currentIdx > 0) {
+      setCurrentIdx((i) => i - 1);
+      resetQuestionState();
+    }
+  };
+  const gotoNext = () => {
+    if (currentIdx < questions.length - 1) {
+      setCurrentIdx((i) => i + 1);
+      resetQuestionState();
+    }
+  };
+
+  // Upload control
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const onUploadPDF = async (file: File) => {
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+
+      const res = await fetch(`${API_BASE}/extract-topics`, { method: "POST", body: fd });
+
+      const raw = await res.text();
+      if (!res.ok) throw new Error(`Upload failed: ${res.status} ${res.statusText} - ${raw}`);
+
+      const data = (raw ? JSON.parse(raw) : {}) as { topics?: string[] };
+      const topics = Array.isArray(data.topics) ? data.topics : [];
+
+      setSelectedSubjects((prev) => Array.from(new Set([...prev, ...topics])));
+
+      const containingSections = SUBJECTS.filter((s) => s.items.some((i) => topics.includes(i))).map((s) => s.name);
+      setOpenSections((prev) => Array.from(new Set([...prev, ...containingSections])));
+    } catch (e) {
+      console.error("PDF upload failed:", e);
+    } finally {
+      setUploading(false);
+      setDragOver(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type === "application/pdf") onUploadPDF(file);
+  };
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+  const handleDragLeave = () => setDragOver(false);
+
+  const UploadPDFControl = () => (
+    <div className="relative">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/pdf"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onUploadPDF(f);
+        }}
+        className="hidden"
+      />
+      <motion.button
+        whileHover={{ scale: 1.03 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => fileInputRef.current?.click()}
+        className={`group inline-flex items-center gap-2 px-3 py-2 rounded-xl border transition-all text-sm font-medium
+          ${uploading ? "bg-neutral-800 border-neutral-700 text-neutral-300" : "bg-neutral-900 border-neutral-800 hover:border-neutral-700"}
+        `}
+        title="Upload a PDF to auto-select topics"
+      >
+        <span className="relative inline-flex items-center justify-center w-5 h-5">
+          <svg className="w-4 h-4 text-neutral-300 group-hover:text-neutral-100 transition" viewBox="0 0 24 24" fill="none">
+            <path d="M12 16v-8m0 0l-4 4m4-4l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d="M20 16.5V17a3 3 0 01-3 3H7a3 3 0 01-3-3v-.5"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          {uploading && <span className="absolute inset-0 animate-ping rounded-full bg-orange-500/20" />}
+        </span>
+        <span className="text-neutral-200">Upload PDF</span>
+        {uploading && (
+          <span className="ml-2 inline-flex items-center gap-1 text-xs text-neutral-400">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 animate-bounce" />
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 animate-bounce [animation-delay:.15s]" />
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 animate-bounce [animation-delay:.3s]" />
+          </span>
+        )}
+      </motion.button>
+      {dragOver && <span className="absolute -top-7 right-0 text-xs text-neutral-400">Drop PDF here</span>}
+    </div>
+  );
+
+  const Checkbox = ({ label }: { label: string }) => {
+    const checked = selectedSubjects.includes(label);
+    return (
+      <div onClick={() => toggleSubject(label)} className="flex items-center gap-3 cursor-pointer group select-none">
+        <div
+          className={`w-5 h-5 flex items-center justify-center rounded-md border transition-all duration-200 ${
+            checked ? "bg-orange-500 border-orange-500 scale-105" : "border-neutral-700 group-hover:border-neutral-600"
+          }`}
+        >
+          <svg
+            className={`w-3 h-3 text-white transition-all duration-200 ${checked ? "opacity-100 scale-100" : "opacity-0 scale-50"}`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            viewBox="0 0 24 24"
+          >
+            <path d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <span className={`transition ${checked ? "text-orange-400" : "text-neutral-300 group-hover:text-neutral-100"} font-medium`}>
+          {label}
+        </span>
+      </div>
+    );
+  };
+
+  const Controls = () => {
+    const hasBackend = selectedSubjects.some((s) => ["APIs", "Databases", "Caching", "Redis", "Kafka"].includes(s));
+    const hasFrontend = selectedSubjects.some((s) => ["React", "CSS", "Web Performance", "SSR", "Hydration"].includes(s));
+    const hasML = selectedSubjects.some((s) => ["Model Training", "Regularization", "Evaluation"].includes(s));
+    if (!questions.length) return null;
+
+    return (
+      <div className="space-y-3">
+        {hasBackend && (
+          <div className="rounded-xl p-3 border border-neutral-800 bg-neutral-950/60">
+            <p className="text-[11px] uppercase tracking-wide text-neutral-400 mb-2">Backend Controls</p>
+            <div className="flex flex-wrap items-center gap-3 min-w-0">
+              <label className="text-sm text-neutral-300">Traffic</label>
+              <select
+                value={previewControls.backendTraffic}
+                onChange={(e) => setPreviewControls((c) => ({ ...c, backendTraffic: Number(e.target.value) }))}
+                className="bg-neutral-900 border border-neutral-700 rounded-md px-2 py-1 text-sm"
+              >
+                <option value={0.5}>0.5x</option>
+                <option value={1}>1x</option>
+                <option value={2}>2x</option>
+              </select>
+
+              <label className="text-sm text-neutral-300 ml-2">Cache</label>
+              <input
+                type="checkbox"
+                checked={previewControls.enableCache}
+                onChange={(e) => setPreviewControls((c) => ({ ...c, enableCache: e.target.checked }))}
+              />
+
+              <label className="text-sm text-neutral-300 ml-2">Replicas</label>
+              <input
+                type="checkbox"
+                checked={previewControls.useReadReplicas}
+                onChange={(e) => setPreviewControls((c) => ({ ...c, useReadReplicas: e.target.checked }))}
+              />
+            </div>
+          </div>
+        )}
+
+        {hasFrontend && (
+          <div className="rounded-xl p-3 border border-neutral-800 bg-neutral-950/60">
+            <p className="text-[11px] uppercase tracking-wide text-neutral-400 mb-2">Frontend Controls</p>
+            <div className="flex flex-wrap items-center gap-3 min-w-0">
+              <label className="text-sm text-neutral-300">Code Split</label>
+              <input
+                type="checkbox"
+                checked={previewControls.enableCodeSplit}
+                onChange={(e) => setPreviewControls((c) => ({ ...c, enableCodeSplit: e.target.checked }))}
+              />
+              <label className="text-sm text-neutral-300 ml-2">Memo</label>
+              <input
+                type="checkbox"
+                checked={previewControls.enableMemo}
+                onChange={(e) => setPreviewControls((c) => ({ ...c, enableMemo: e.target.checked }))}
+              />
+            </div>
+          </div>
+        )}
+
+        {hasML && (
+          <div className="rounded-xl p-3 border border-neutral-800 bg-neutral-950/60">
+            <p className="text-[11px] uppercase tracking-wide text-neutral-400 mb-2">ML Controls</p>
+            <div className="flex flex-wrap items-center gap-3 min-w-0">
+              <label className="text-sm text-neutral-300">Regularization</label>
+              <input
+                type="checkbox"
+                checked={previewControls.mlReg}
+                onChange={(e) => setPreviewControls((c) => ({ ...c, mlReg: e.target.checked }))}
+              />
+              <label className="text-sm text-neutral-300 ml-2">Aug</label>
+              <input
+                type="checkbox"
+                checked={previewControls.mlAug}
+                onChange={(e) => setPreviewControls((c) => ({ ...c, mlAug: e.target.checked }))}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // --------- Live Preview UI ----------
+  const Stat = ({
+    label,
+    value,
+    unit,
+    good,
+    changed,
+    danger,
+  }: {
+    label: string;
+    value: string | number;
+    unit?: string;
+    good?: boolean;
+    changed?: boolean;
+    danger?: boolean;
+  }) => {
+    const valueClass = danger
+      ? "text-red-200"
+      : changed
+      ? "text-orange-300"
+      : good
+      ? "text-emerald-300"
+      : "text-neutral-200";
+
+    const ringClass = danger ? "ring-1 ring-red-600/40 border-red-700/40" : "border-neutral-800";
+
+    return (
+      <div className={`flex items-center justify-between gap-3 rounded-xl border bg-neutral-950/60 px-3 py-2 ${ringClass}`}>
+        <div className="text-xs uppercase tracking-wide text-neutral-400">{label}</div>
+        <div className={`text-sm font-semibold ${valueClass}`}>
+          {value}
+          {unit ? <span className="text-neutral-400 font-medium ml-1">{unit}</span> : null}
+        </div>
+      </div>
+    );
+  };
+
+  const LivePreview = () => {
+    if (!questions.length) {
+      return <div className="text-sm text-neutral-500">Preview appears after you generate questions.</div>;
+    }
+
+    // Only treat as "final wrong" after the second wrong attempt (attemptsLeft hits 0)
+    const wrongFinal = feedback.status === "wrong" && attemptsLeft <= 0;
+
+    const prevBackend = prevBackendRef.current;
+    const prevFrontend = prevFrontendRef.current;
+    const prevML = prevMLRef.current;
+
+    return (
+      <div className="relative h-full min-h-[420px]">
+        {currentTopic === "backend" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-xs uppercase tracking-wide text-neutral-400 font-medium">Backend Metrics</div>
+              <div className="text-xs text-neutral-500">
+                Traffic x{previewControls.backendTraffic} • Cache {previewControls.enableCache ? "On" : "Off"} • Replicas{" "}
+                {previewControls.useReadReplicas ? "On" : "Off"}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <Stat
+                label="API Load"
+                value={(backend.apiLoad * 100).toFixed(0)}
+                unit="%"
+                good={backend.apiLoad < 0.6}
+                changed={backend.apiLoad !== prevBackend.apiLoad}
+                danger={wrongFinal && backend.apiLoad > prevBackend.apiLoad}
+              />
+              <Stat
+                label="Error Rate"
+                value={(backend.apiErrors * 100).toFixed(2)}
+                unit="%"
+                good={backend.apiErrors < 0.03}
+                changed={backend.apiErrors !== prevBackend.apiErrors}
+                danger={wrongFinal && backend.apiErrors > prevBackend.apiErrors}
+              />
+              <Stat
+                label="Cache Hit"
+                value={(backend.cacheHit * 100).toFixed(0)}
+                unit="%"
+                good={backend.cacheHit > 0.5}
+                changed={backend.cacheHit !== prevBackend.cacheHit}
+                danger={wrongFinal && backend.cacheHit < prevBackend.cacheHit}
+              />
+              <Stat
+                label="DB Conns"
+                value={backend.dbConn}
+                good={backend.dbConn < 80}
+                changed={backend.dbConn !== prevBackend.dbConn}
+                danger={wrongFinal && backend.dbConn > prevBackend.dbConn}
+              />
+              <Stat
+                label="QPS"
+                value={backend.qps}
+                good={backend.qps > 120}
+                changed={backend.qps !== prevBackend.qps}
+                danger={wrongFinal && backend.qps < prevBackend.qps}
+              />
+              <Stat
+                label="Latency"
+                value={backend.latency}
+                unit="ms"
+                good={backend.latency < 80}
+                changed={backend.latency !== prevBackend.latency}
+                danger={wrongFinal && backend.latency > prevBackend.latency}
+              />
+            </div>
+
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/40 p-3">
+              <div className="text-xs uppercase tracking-wide text-neutral-400 mb-2">Live Errors</div>
+              {wrongFinal ? (
+                <ul className="text-sm text-red-200 space-y-1 list-disc pl-5">
+                  <li>Increased 5xx responses under load.</li>
+                  <li>Cache stampede causing DB connection spikes.</li>
+                  <li>p95 latency breach detected.</li>
+                </ul>
+              ) : feedback.status === "wrong" ? (
+                <div className="text-sm text-red-200">Warning: metrics trending worse. Try the other option.</div>
+              ) : (
+                <div className="text-sm text-neutral-400">No incidents detected.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {currentTopic === "frontend" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-xs uppercase tracking-wide text-neutral-400 font-medium">Frontend Metrics</div>
+              <div className="text-xs text-neutral-500">
+                Code split {previewControls.enableCodeSplit ? "On" : "Off"} • Memo {previewControls.enableMemo ? "On" : "Off"}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <Stat
+                label="FPS"
+                value={Math.round(frontend.fps)}
+                good={frontend.fps >= 55}
+                changed={frontend.fps !== prevFrontend.fps}
+                danger={wrongFinal && frontend.fps < prevFrontend.fps}
+              />
+              <Stat
+                label="Bundle"
+                value={Math.round(frontend.bundleKB)}
+                unit="KB"
+                good={frontend.bundleKB < 420}
+                changed={frontend.bundleKB !== prevFrontend.bundleKB}
+                danger={wrongFinal && frontend.bundleKB > prevFrontend.bundleKB}
+              />
+              <Stat
+                label="Hydration"
+                value={Math.round(frontend.hydrationMs)}
+                unit="ms"
+                good={frontend.hydrationMs < 200}
+                changed={frontend.hydrationMs !== prevFrontend.hydrationMs}
+                danger={wrongFinal && frontend.hydrationMs > prevFrontend.hydrationMs}
+              />
+              <Stat
+                label="Re-renders"
+                value={frontend.reRenders}
+                good={frontend.reRenders <= 3}
+                changed={frontend.reRenders !== prevFrontend.reRenders}
+                danger={wrongFinal && frontend.reRenders > prevFrontend.reRenders}
+              />
+            </div>
+
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/40 p-3">
+              <div className="text-xs uppercase tracking-wide text-neutral-400 mb-2">Live Errors</div>
+              {wrongFinal ? (
+                <ul className="text-sm text-red-200 space-y-1 list-disc pl-5">
+                  <li>Layout shift increased (CLS regression).</li>
+                  <li>Hydration mismatch warning triggered.</li>
+                  <li>Unnecessary re-renders detected in hot path.</li>
+                </ul>
+              ) : feedback.status === "wrong" ? (
+                <div className="text-sm text-red-200">Warning: performance regressed. Try a different mitigation.</div>
+              ) : (
+                <div className="text-sm text-neutral-400">Preview stable. No warnings.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {currentTopic === "ml" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-xs uppercase tracking-wide text-neutral-400 font-medium">ML Training</div>
+              <div className="text-xs text-neutral-500">
+                Regularization {previewControls.mlReg ? "On" : "Off"} • Aug {previewControls.mlAug ? "On" : "Off"}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <Stat
+                label="Train loss"
+                value={ml.trainLoss.toFixed(2)}
+                good={ml.trainLoss < 0.6}
+                changed={ml.trainLoss !== prevML.trainLoss}
+                danger={wrongFinal && ml.trainLoss > prevML.trainLoss}
+              />
+              <Stat
+                label="Val loss"
+                value={ml.valLoss.toFixed(2)}
+                good={ml.valLoss < 0.75}
+                changed={ml.valLoss !== prevML.valLoss}
+                danger={wrongFinal && ml.valLoss > prevML.valLoss}
+              />
+              <Stat label="Epoch" value={ml.epoch} good changed={ml.epoch !== prevML.epoch} danger={false} />
+              <Stat
+                label="Overfit risk"
+                value={(ml.overfitRisk * 100).toFixed(0)}
+                unit="%"
+                good={ml.overfitRisk < 0.4}
+                changed={ml.overfitRisk !== prevML.overfitRisk}
+                danger={wrongFinal && ml.overfitRisk > prevML.overfitRisk}
+              />
+            </div>
+
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/40 p-3">
+              <div className="text-xs uppercase tracking-wide text-neutral-400 mb-2">Live Errors</div>
+              {wrongFinal ? (
+                <ul className="text-sm text-red-200 space-y-1 list-disc pl-5">
+                  <li>Validation loss diverging from training loss.</li>
+                  <li>Overfitting risk alert triggered.</li>
+                  <li>Data drift suspicion (feature distribution shift).</li>
+                </ul>
+              ) : feedback.status === "wrong" ? (
+                <div className="text-sm text-red-200">Warning: generalization worsened. Try a stronger regularization choice.</div>
+              ) : (
+                <div className="text-sm text-neutral-400">Training stable. No alerts.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {currentTopic === "generic" && (
+          <div className="space-y-3">
+            <div className="text-sm text-neutral-400">Pick a Frontend/Backend/ML topic to get a richer preview.</div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div
+      className={`min-h-screen bg-neutral-950 text-neutral-100 transition-colors ${dragOver ? "bg-neutral-900/60" : ""}`}
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+    >
+      <header className="h-16 border-b border-neutral-900 bg-neutral-950/70 backdrop-blur flex items-center px-6">
+        <div className="flex items-center gap-3">
+          <img src="/ECL_LOGO_Sage.png" className="w-7 h-7 rounded-sm" alt="SAGE" />
+          <span className="font-semibold text-xl tracking-wide">SAGE</span>
+        </div>
+        <div className="ml-auto flex items-center gap-3">
+          <UploadPDFControl />
+        </div>
+      </header>
+
+      <div className="flex h-[calc(100vh-64px)]">
+        <aside className="w-80 border-r border-neutral-900 p-5 flex flex-col gap-5 overflow-y-auto">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-neutral-500 mb-2">Question Types</p>
+            <div className="flex flex-wrap gap-2">
+              {["MCQ", "Fill in the Blanks", "Short Answer", "Coding"].map((type) => {
+                const selected = questionTypes.includes(type);
+                return (
+                  <motion.button
+                    key={type}
+                    whileTap={{ scale: 0.94 }}
+                    whileHover={{ scale: 1.04 }}
+                    onClick={() => toggleQuestionType(type)}
+                    className={`px-3 py-1.5 text-sm rounded-full border transition ${
+                      selected
+                        ? "bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/20"
+                        : "bg-neutral-900 border-neutral-800 hover:border-neutral-700"
+                    }`}
+                  >
+                    {type}
+                  </motion.button>
+                );
+              })}
+            </div>
+          </div>
+
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            onClick={generateScenario}
+            className="bg-orange-500 hover:bg-orange-600 transition rounded-2xl py-2 font-semibold shadow-md hover:shadow-lg tracking-wide"
+          >
+            {loading ? "Generating..." : "Generate Questions"}
+          </motion.button>
+
+          <div className="space-y-3 text-sm">
+            {SUBJECTS.map((section) => {
+              const isOpen = openSections.includes(section.name);
+              return (
+                <motion.div
+                  key={section.name}
+                  layout
+                  transition={{ duration: 0.35 }}
+                  className="bg-neutral-900 rounded-xl p-3 border border-neutral-800"
+                >
+                  <button
+                    onClick={() => toggleSection(section.name)}
+                    aria-expanded={isOpen}
+                    aria-controls={`section-${section.name}`}
+                    className="w-full flex justify-between items-center font-medium"
+                  >
+                    <span className="text-neutral-200">{section.name}</span>
+                    <motion.span
+                      animate={{ rotate: isOpen ? 45 : 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="text-lg text-neutral-400"
+                    >
+                      +
+                    </motion.span>
+                  </button>
+
+                  <AnimatePresence initial={false}>
+                    {isOpen && (
+                      <motion.div
+                        key={`${section.name}-content`}
+                        id={`section-${section.name}`}
+                        initial={{ height: 0, opacity: 0, paddingTop: 0 }}
+                        animate={{ height: "auto", opacity: 1, paddingTop: 8 }}
+                        exit={{ height: 0, opacity: 0, paddingTop: 0 }}
+                        transition={{ duration: 0.35, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="space-y-2">
+                          {section.items.map((item) => (
+                            <Checkbox key={item} label={item} />
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {/* Controls moved to preview panel (right) */}
+        </aside>
+
+        <div className="flex-1 p-8">
+          {questions.length > 0 ? (
+            <div
+              ref={containerRef}
+              className="flex w-full h-full gap-0 items-stretch min-w-0"
+              onMouseMove={onDrag}
+              onMouseUp={endDrag}
+              onMouseLeave={endDrag}
+            >
+              {/* Left pane */}
+              <div style={{ width: `${leftPct}%` }} className="min-w-[320px] pr-6 min-w-0">
+                {current ? (
+                  <motion.div
+                    key={`question-${currentIdx}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-neutral-900 p-6 rounded-2xl shadow-lg w-full border border-neutral-800"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <motion.button
+                        whileHover={{ scale: currentIdx > 0 ? 1.03 : 1 }}
+                        whileTap={{ scale: currentIdx > 0 ? 0.97 : 1 }}
+                        onClick={gotoPrev}
+                        disabled={currentIdx === 0}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl border font-medium ${
+                          currentIdx === 0 ? "border-neutral-900 text-neutral-600" : "border-neutral-800 hover:border-neutral-700"
+                        }`}
+                      >
+                        <span className="text-lg">←</span>
+                        <span className="text-sm">Prev</span>
+                      </motion.button>
+
+                      <span className="text-neutral-400 text-sm">
+                        Question {currentIdx + 1} of {questions.length || 0}
+                      </span>
+
+                      <motion.button
+                        whileHover={{ scale: currentIdx < questions.length - 1 ? 1.03 : 1 }}
+                        whileTap={{ scale: currentIdx < questions.length - 1 ? 0.97 : 1 }}
+                        onClick={gotoNext}
+                        disabled={currentIdx >= questions.length - 1}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl border font-medium ${
+                          currentIdx >= questions.length - 1
+                            ? "border-neutral-900 text-neutral-600"
+                            : "border-neutral-800 hover:border-neutral-700"
+                        }`}
+                      >
+                        <span className="text-sm">Next</span>
+                        <span className="text-lg">→</span>
+                      </motion.button>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="prose prose-invert max-w-none">
+                        <p className="text-[17px] leading-relaxed text-neutral-200">{current.scenario}</p>
+                      </div>
+
+                      {current.type === "MCQ" && current.options && (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 min-w-0">
+                          {current.options.map((opt, idx) => {
+                            const disabled = attemptsLeft <= 0 || feedback.status === "correct";
+                            const isCorrect = feedback.status === "correct" && idx === current.correctIndex;
+                            const isLastWrong = attemptsLeft <= 0 && lastWrongIndex === idx && feedback.status === "wrong";
+                            const base =
+                              "px-4 py-3 rounded-2xl border transition focus:outline-none focus:ring-2 text-sm font-medium min-w-0";
+                            const variant = isCorrect
+                              ? "bg-emerald-300/15 border-emerald-300 text-emerald-200 focus:ring-emerald-400"
+                              : isLastWrong
+                              ? "bg-red-300/15 border-red-300 text-red-200 focus:ring-red-400"
+                              : "bg-neutral-800 border-neutral-800 hover:border-neutral-700 focus:ring-orange-500";
+                            return (
+                              <motion.button
+                                key={idx}
+                                whileHover={!disabled ? { scale: 1.02 } : undefined}
+                                whileTap={!disabled ? { scale: 0.98 } : undefined}
+                                onClick={() => !disabled && onSelectOption(idx)}
+                                disabled={disabled}
+                                title={opt}
+                                className={`${base} ${variant} break-words text-left whitespace-normal`}
+                              >
+                                <span className="block line-clamp-3">{opt}</span>
+                              </motion.button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {current.type === "Fill in the Blanks" && (
+                        <div className="flex items-center gap-3">
+                          <input
+                            value={blankInput}
+                            onChange={(e) => setBlankInput(e.target.value)}
+                            placeholder="Type your answer"
+                            className="flex-1 px-4 py-2 rounded-2xl bg-neutral-800 border border-neutral-800 focus:border-neutral-700 focus:outline-none font-medium placeholder:text-neutral-500"
+                            disabled={attemptsLeft <= 0 || feedback.status === "correct"}
+                          />
+                          <motion.button
+                            whileTap={{ scale: 0.98 }}
+                            onClick={onSubmitBlank}
+                            disabled={attemptsLeft <= 0 || feedback.status === "correct"}
+                            className="px-4 py-2 rounded-2xl bg-orange-500 hover:bg-orange-600 disabled:bg-neutral-800 font-semibold"
+                          >
+                            Submit
+                          </motion.button>
+                        </div>
+                      )}
+
+{current?.type === "Short Answer" && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-xs uppercase tracking-wide text-neutral-500">Short answer (max 4 lines)</div>
+            <div className="text-xs text-neutral-400">Score: {(shortScore01 * 100).toFixed(0)}%</div>
+          </div>
+
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-950/50 p-3 space-y-2">
+            <textarea
+              value={shortAnswer}
+              onChange={(e) => {
+                const next = e.target.value;
+                setShortAnswer(next.split("\n").slice(0, 4).join("\n"));
+              }}
+              rows={4}
+              placeholder="Answer in up to 4 lines…"
+              className="w-full resize-none bg-neutral-900/40 border border-neutral-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-neutral-700"
+              disabled={attemptsLeft <= 0 || feedback.status === "correct"}
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {Array.from({ length: 4 }).map((_, i) => {
+                const ok = shortLineOk[i];
+                return (
+                  <div
+                    key={i}
+                    className={`flex items-center justify-between rounded-xl border px-3 py-2 text-sm ${
+                      ok ? "border-emerald-700/40 bg-emerald-500/10" : "border-red-700/30 bg-red-500/10"
+                    }`}
+                  >
+                    <span className="text-neutral-300">Line {i + 1}</span>
+                    <span className={`font-semibold ${ok ? "text-emerald-200" : "text-red-200"}`}>{ok ? "✔" : "✖"}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-end">
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                onClick={onSubmitShortAnswer}
+                disabled={attemptsLeft <= 0 || feedback.status === "correct"}
+                className="px-4 py-2 rounded-2xl bg-orange-500 hover:bg-orange-600 disabled:bg-neutral-800 font-semibold"
+              >
+                Submit
+              </motion.button>
+            </div>
+          </div>
+
+          {!!current.keywords?.length && (
+            <div className="text-xs text-neutral-500">
+              Looking for: <span className="text-neutral-300">{current.keywords.join(", ")}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+{current?.type === "Coding" && (
+  <div className="space-y-4">
+    <div className="flex items-center justify-between">
+      <div className="text-xs uppercase tracking-wide text-neutral-500">
+        Code Editor
+      </div>
+      <div className="text-xs text-neutral-400">
+        {current.language || "plaintext"} •{" "}
+        {(codeScore01 * 100).toFixed(0)}%
+      </div>
+    </div>
+
+    <div className="rounded-2xl border border-neutral-800 bg-neutral-950/50 p-3">
+      <textarea
+        value={code}
+        onChange={(e) => setCode(e.target.value)}
+        spellCheck={false}
+        className="w-full h-80 font-mono text-[13px] leading-relaxed resize-none bg-neutral-900/40 border border-neutral-800 rounded-xl px-3 py-2 focus:outline-none focus:border-neutral-700"
+        placeholder={current.starterCode || "Write code here…"}
+        disabled={attemptsLeft <= 0 || feedback.status === "correct"}
+      />
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="rounded-2xl border border-neutral-800 bg-neutral-950/60 p-3">
+        <div className="text-xs uppercase tracking-wide text-neutral-500 mb-2">
+          Matched
+        </div>
+        <div className="text-sm text-emerald-200">
+          {codeMatched.length ? codeMatched.join(", ") : "—"}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-neutral-800 bg-neutral-950/60 p-3">
+        <div className="text-xs uppercase tracking-wide text-neutral-500 mb-2">
+          Missing
+        </div>
+        <div className="text-sm text-red-200">
+          {codeMissing.length ? codeMissing.join(", ") : "—"}
+        </div>
+      </div>
+    </div>
+
+    <div className="flex justify-end">
+      <motion.button
+        whileTap={{ scale: 0.98 }}
+        onClick={() => {
+          if (codeScore01 >= 0.85) {
+            setFeedback({
+              status: "correct",
+              hint:
+                "Solution looks structurally correct. Preview improved.",
+            });
+            applyOutcome("correct");
+          } else {
+            const remaining = attemptsLeft - 1;
+            setAttemptsLeft(remaining);
+
+            if (remaining <= 0) {
+              setFeedback({
+                status: "wrong",
+                hint: `Missing tokens: ${codeMissing.join(", ")}`,
+              });
+              applyOutcome("wrongFinal");
+            } else {
+              setFeedback({
+                status: "wrong",
+                hint: `Still missing: ${codeMissing.join(", ")}`,
+              });
+              applyOutcome("wrongHint");
+            }
+          }
+        }}
+        disabled={attemptsLeft <= 0 || feedback.status === "correct"}
+        className="px-4 py-2 rounded-2xl bg-orange-500 hover:bg-orange-600 disabled:bg-neutral-800 font-semibold"
+      >
+        Submit
+      </motion.button>
+    </div>
+
+    <div className="text-xs text-neutral-500">
+      Preview updates only after submission.
+    </div>
+  </div>
+)}
+
+
+                      <div className="flex flex-col gap-3 text-sm">
+                        <div className="flex items-center justify-between text-neutral-300">
+                          <span className="font-medium">Attempts left: {attemptsLeft}</span>
+                          {feedback.status === "correct" && <span className="text-emerald-300 font-semibold">Correct!</span>}
+                        </div>
+
+                        {feedback.hint && (
+                          <div className="rounded-2xl p-3 text-sm whitespace-pre-line bg-neutral-900/60 border border-neutral-800 text-neutral-200">
+                            {feedback.hint}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <div className="text-neutral-500">{loading ? "Generating…" : "Generate questions to begin."}</div>
+                )}
+              </div>
+
+              {/* Splitter */}
+              <div
+                onMouseDown={startDrag}
+                className={`w-1 mx-3 h-full cursor-col-resize rounded bg-neutral-800 hover:bg-neutral-700 ${dragging ? "bg-emerald-700" : ""}`}
+              />
+
+              {/* Right pane */}
+              <div style={{ width: `${100 - leftPct}%` }} className="min-w-[320px] min-w-0">
+                {(() => {
+                  const wrongFinal = feedback.status === "wrong" && attemptsLeft <= 0;
+                  const previewOutline = wrongFinal ? "ring-2 ring-red-600/60" : "ring-1 ring-neutral-800/0";
+                  return (
+                    <div className={`bg-neutral-900 p-5 rounded-2xl shadow-lg h-full border border-neutral-800 min-w-0 ${previewOutline}`}>
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <h3 className="text-xs uppercase tracking-wide text-neutral-400 font-medium">Live Preview</h3>
+                        {wrongFinal ? <span className="text-xs text-red-300">Final wrong attempt</span> : null}
+                      </div>
+
+                      {/* Control panel on the right (above preview) */}
+                      <div className="mb-4">
+                        <Controls />
+                      </div>
+
+                      <LivePreview />
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          ) : (
+            <div className="text-neutral-500">{loading ? "Generating…" : "Generate questions to begin."}</div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
