@@ -547,17 +547,12 @@ function MainApp() {
       const rawQs = Array.isArray(data.questions) ? data.questions : [];
 
       const qs: Question[] = rawQs.map((q: any) => {
-        const safeType =
-          q.type === "MCQ" ||
-            q.type === "Fill in the Blanks" ||
-            q.type === "Short Answer" ||
-            q.type === "Coding"
-            ? q.type
-            : "MCQ";
-
+        // Enforce the selected question type to prevent the API 
+        // from defaulting to MCQ when a different type was requested.
+        const forcedType = questionTypes[0] as Question["type"];
         return {
           ...q,
-          type: safeType,
+          type: forcedType,
         };
       });
 
