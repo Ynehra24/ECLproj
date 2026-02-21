@@ -346,14 +346,14 @@ def fallback_questions(subjects: List[str], count: int, force_type: Optional[str
         if force_type == "Coding":
             q = Question(
                 type="Coding",
-                scenario=f"(Topic: {topic}) Implement a function that calculates the sum of all even numbers in a given list. You are given a basic structure. Complete the missing implementation.",
+                scenario=f"(Topic: {topic}) Implement a function named `process_{topic.lower().replace(' ', '_')}` that takes a parameter `config_data` and returns `True`. \n\nExpected Variables: \n- `config_data`\n- `status_flag`",
                 options=None,
                 correctIndex=None,
-                hint="Make sure to define the function, loop through the list, and return the correct sum.",
-                reason="This is the standard approach for this feature, iterating through the list and conditionally adding to a running total.",
-                answer="def sum_even_numbers(numbers):\n    total = 0\n    for num in numbers:\n        if num % 2 == 0:\n            total += num\n    return total",
-                starterCode="def sum_even_numbers(numbers):\n    # Implement here\n    pass",
-                requiredTokens=["def", "return", "for", "if"],
+                hint="Make sure to define the function, use the required variables, and return True.",
+                reason="This is the standard approach for this feature, ensuring all required variables are used.",
+                answer=f"def process_{topic.lower().replace(' ', '_')}(config_data):\n    status_flag = True\n    return status_flag",
+                starterCode=f"def process_{topic.lower().replace(' ', '_')}(config_data):\n    # Implement here\n    pass",
+                requiredTokens=["def", "return", "config_data", "status_flag"],
                 language="python"
             )
         else:
@@ -398,8 +398,9 @@ def call_openrouter(subjects: List[str], types: List[str], count: int) -> List[Q
         f"Allowed types: {json.dumps(types)}\n"
         f"Total questions: {count}\n\n"
         "RULE 1: The 'scenario' string MUST begin with the explicit string '(Topic: <assigned_topic>)' so the system can verify adherence.\n"
-        "RULE 2: For 'Coding' type questions, DO NOT create a realistic or situational story. Directly and explicitly state the EXACT feature, function, or component the user needs to implement. Example: 'Implement a function named `fetchUserData` that makes an API call using React Query and returns the data, handling the loading state appropriately.'\n"
-        "RULE 3: The requested feature MUST explicitly test the assigned topic.\n\n"
+        "RULE 2: For 'Coding' type questions, DO NOT ask generic math algorithms (like 'sum of numbers' or 'fibonacci') UNLESS the topic explicitly demands it. The code task MUST be deeply and specifically relevant to the exact topic.\n"
+        "RULE 3: For 'Coding' type questions, DO NOT create a realistic or situational story. Directly and explicitly state the EXACT feature, function, or component the user needs to implement. Example: 'Implement a function named `fetchUserData` that makes an API call using React Query and returns the data...'\n"
+        "RULE 4: For 'Coding' type questions, the `scenario` plain text MUST explicitly list the exact variable names, function names, and/or parameters the user is expected to use in their implementation. This ensures they know how their logic will be checked.\n\n"
     )
 
 
