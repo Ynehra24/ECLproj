@@ -381,8 +381,10 @@ def call_openrouter(subjects: List[str], types: List[str], count: int) -> List[Q
         f"Allowed types: {json.dumps(types)}\n"
         f"Total questions: {count}\n\n"
         "RULE 1: The 'scenario' string MUST begin with the explicit string '(Topic: <assigned_topic>)' so the system can verify adherence.\n"
-        "RULE 2: For 'Coding' type questions, create a REALISTIC, SITUATIONAL scenario (e.g., 'A production database is spiking in CPU... implement a connection pool logic...') that requires a hands-on coding solution. Do NOT ask for definitions or theoretical lists; ask for the CODE to solve the problem.\n\n"
+        "RULE 2: For 'Coding' type questions, DO NOT create a realistic or situational story. Simply ask the user to implement a specific feature or function. Be direct. Example: 'Implement a function to fetch user data using React Query and handle the loading state.'\n"
+        "RULE 3: The requested feature MUST explicitly test the assigned topic.\n\n"
     )
+
 
     if force_type:
         prompt += f'CRITICAL: Every question MUST have "type": "{force_type}".\n\n'
@@ -405,9 +407,9 @@ def call_openrouter(subjects: List[str], types: List[str], count: int) -> List[Q
     }
 
     body = {
-        "model": "openai/gpt-4o-mini",
+        "model": "google/gemini-2.5-pro",
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.5, # Lowered temperature for stricter adherence
+        "temperature": 0.4,
     }
 
     def _parse_response(raw: str) -> List[Question]:
@@ -452,10 +454,15 @@ def call_openrouter(subjects: List[str], types: List[str], count: int) -> List[Q
                 q.language = q.language.lower().strip()
 
                 if not q.starterCode:
-                    q.starterCode = "// implement solution here"
+                    q.starterCode = "// implement solution here\n"
 
                 if not q.requiredTokens:
-                    q.requiredTokens = ["function", "return", "await"]
+                    q.requiredTokens = ["function", "return"]
+                    
+                if not q.answer:
+                    q.answer = "// The AI did not provide a complete solution for this question."
+                else:
+                    q.answer = _strip_code_fences(q.answer)
 
         # 🔥 Shuffle only if MCQ
         for q in questions:

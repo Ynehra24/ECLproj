@@ -2029,6 +2029,8 @@ function MainApp() {
                                     // SHIFT to correct solution
                                     if (current.answer) {
                                       setCode(current.answer);
+                                    } else {
+                                      setCode(`// No solution provided by backend.\n// Debug data:\n${JSON.stringify(current, null, 2)}`);
                                     }
                                     setFeedback({
                                       status: "wrong",
