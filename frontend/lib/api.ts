@@ -32,9 +32,8 @@ async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
 
     if (response.status === 401) {
         clearToken();
-        if (typeof window !== "undefined" && window.location.pathname !== "/login") {
-            window.location.href = "/login";
-        }
+        // Remove hard window.location here to prevent full page reloads and state clearing.
+        // The components themselves (like ProfilePage) already catch the error and do router.push("/login")
         throw new Error("Unauthorized - session expired");
     }
 
