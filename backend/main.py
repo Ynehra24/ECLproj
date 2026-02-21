@@ -380,7 +380,8 @@ def call_openrouter(subjects: List[str], types: List[str], count: int) -> List[Q
         f"Topics (one per question, use them IN THIS EXACT ORDER): {json.dumps(distributed)}\n"
         f"Allowed types: {json.dumps(types)}\n"
         f"Total questions: {count}\n\n"
-        "RULE: The 'scenario' string MUST begin with the explicit string '(Topic: <assigned_topic>)' so the system can verify adherence.\n\n"
+        "RULE 1: The 'scenario' string MUST begin with the explicit string '(Topic: <assigned_topic>)' so the system can verify adherence.\n"
+        "RULE 2: For 'Coding' type questions, create a REALISTIC, SITUATIONAL scenario (e.g., 'A production database is spiking in CPU... implement a connection pool logic...') that requires a hands-on coding solution. Do NOT ask for definitions or theoretical lists; ask for the CODE to solve the problem.\n\n"
     )
 
     if force_type:
@@ -390,11 +391,12 @@ def call_openrouter(subjects: List[str], types: List[str], count: int) -> List[Q
         "Return ONLY a valid JSON array.\n"
         "No markdown. No explanations.\n"
         "For 'Coding' type questions, you MUST include:\n"
-        "1) 'starterCode': a template for the user.\n"
-        "2) 'answer': the COMPLETE, WORKING correct code solution.\n"
-        "3) 'hint': a helpful nudge if they get it wrong once.\n"
-        "4) 'reason': a detailed explanation of WHY that solution is correct.\n"
-        "5) 'language': the programming language identifier (e.g. 'python', 'typescript', 'javascript', 'sql', 'bash').\n"
+        "1) 'starterCode': A brief template/stub for the user (e.g., function definition).\n"
+        "2) 'answer': THE FULL, CORRECT, WORKING CODE SOLUTION that solves the scenario.\n"
+        "3) 'hint': A distinct nudge for the user if they miss it.\n"
+        "4) 'reason': A high-level explanation of the code's approach.\n"
+        "5) 'requiredTokens': A JSON array of 4-6 critical strings (keywords, method names, variable names) that MUST be present in a correct solution for validation.\n"
+        "6) 'language': The language identifier (e.g. 'python', 'typescript', 'javascript', 'sql', 'bash').\n"
     )
 
     headers = {
