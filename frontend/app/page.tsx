@@ -514,9 +514,12 @@ function MainApp() {
   };
 
   // --------- Reset State Helper ---------
-  const resetQuestionState = (idx?: number) => {
+  // freshQuestions: pass the newly-fetched array so we can read language
+  // before React has re-rendered with the new `questions` state.
+  const resetQuestionState = (idx?: number, freshQuestions?: Question[]) => {
     const targetIdx = idx !== undefined ? idx : currentIdx;
-    const targetQ = questions[targetIdx];
+    const pool = freshQuestions ?? questions;
+    const targetQ = pool[targetIdx];
 
     setAttemptsLeft(2);
     setLastWrongIndex(null);
@@ -532,14 +535,12 @@ function MainApp() {
     setCodeMissing([]);
     setCodeScore01(0);
 
-    // Default language logic
+    // Always reset languageTouched so autodetect runs fresh for each question
+    setLanguageTouched(false);
+
+    // Apply language from the question if available
     if (targetQ?.language) {
-      setCodeLanguage(targetQ.language);
-    } else {
-      // Fallback to topic default if currentTopic is available, 
-      // but currentTopic is a useMemo based on questions[currentIdx].
-      // For simplicity, we can let the UI use the current codeLanguage state 
-      // until the user touches it or the next question provides one.
+      setCodeLanguage(targetQ.language.trim().toLowerCase());
     }
   };
 
@@ -699,12 +700,12 @@ function MainApp() {
 
       setQuestions(qs);
       setCurrentIdx(0);
-      resetQuestionState();
+      resetQuestionState(0, qs);
     } catch (error) {
       console.error("Error fetching questions:", error);
       setQuestions([]);
       setCurrentIdx(0);
-      resetQuestionState();
+      resetQuestionState(0, []);
     }
 
     setLoading(false);
