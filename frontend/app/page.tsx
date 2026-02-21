@@ -6,6 +6,9 @@ import { Inter } from "next/font/google";
 
 const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
 
+// ==========================================
+// TYPE DEFINITIONS
+// ==========================================
 type Question = {
   type: "MCQ" | "Fill in the Blanks" | "Short Answer" | "Coding";
   scenario: string;
@@ -50,6 +53,9 @@ type MLPreview = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
 
+// ==========================================
+// MAIN ENTRY POINT
+// ==========================================
 export default function Home() {
   const [showIntro, setShowIntro] = useState(true);
   return (
@@ -61,6 +67,9 @@ export default function Home() {
   );
 }
 
+// ==========================================
+// INTRO SCREEN COMPONENT
+// ==========================================
 function IntroScreen({ onStart }: { onStart: () => void }) {
   return (
     <motion.div
@@ -93,7 +102,35 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
   );
 }
 
+// ==========================================
+// UTILS & CONSTANTS
+// ==========================================
+const topicDefaultLanguage = (topic: string) => {
+  switch (topic) {
+    case "backend":
+      return "python"; // FastAPI in your workspace
+    case "frontend":
+      return "typescript"; // Next.js/TS
+    case "ml":
+      return "python";
+    default:
+      return "typescript";
+  }
+};
+
+const LANGUAGE_OPTIONS = [
+  { id: "typescript", label: "TypeScript" },
+  { id: "javascript", label: "JavaScript" },
+  { id: "python", label: "Python" },
+  { id: "sql", label: "SQL" },
+  { id: "bash", label: "Bash" },
+] as const;
+
+// ==========================================
+// MAIN APPLICATION COMPONENT
+// ==========================================
 function MainApp() {
+  // --------- Hardcoded Topics Data ---------
   const SUBJECTS: { name: string; items: string[] }[] = [
     {
       name: "Frontend",
@@ -313,6 +350,7 @@ function MainApp() {
     },
   ];
 
+  // --------- Core Application State ---------
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -333,6 +371,12 @@ function MainApp() {
   const [codeMatched, setCodeMatched] = useState<string[]>([]);
   const [codeMissing, setCodeMissing] = useState<string[]>([]);
   const [codeScore01, setCodeScore01] = useState(0);
+  const [codeLanguage, setCodeLanguage] = useState<string>("typescript");
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
+  const [languageTouched, setLanguageTouched] = useState(false);
+
+  const activeType = questionTypes[0];
+
 
   const [backend, setBackend] = useState<BackendPreview>({
     apiLoad: 0.45,
@@ -355,6 +399,7 @@ function MainApp() {
     mlAug: false,
   });
 
+  // --------- Refs & Layout State ---------
   // Track previous values so we can highlight changes (orange)
   const prevBackendRef = useRef<BackendPreview>(backend);
   const prevFrontendRef = useRef<FrontendPreview>(frontend);
@@ -394,6 +439,7 @@ function MainApp() {
     document.body.style.userSelect = "";
   };
 
+  // --------- Topic Selection Handlers ---------
   const toggleSubject = (subject: string) => {
     setSelectedSubjects((prev) => (prev.includes(subject) ? prev.filter((s) => s !== subject) : [...prev, subject]));
   };
@@ -401,9 +447,16 @@ function MainApp() {
     setOpenSections((prev) => (prev.includes(section) ? prev.filter((s) => s !== section) : [...prev, section]));
   };
   const toggleQuestionType = (type: string) => {
-    setQuestionTypes((prev) => (prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]));
+    // Make it exclusive (radio behavior)
+    setQuestionTypes([type]);
+
+    // Clear previous questions so UI resets cleanly
+    setQuestions([]);
+    setCurrentIdx(0);
+    resetQuestionState();
   };
 
+  // --------- Reset State Helper ---------
   const resetQuestionState = () => {
     setAttemptsLeft(2);
     setLastWrongIndex(null);
@@ -421,6 +474,7 @@ function MainApp() {
     setCodeScore01(0);
   };
 
+  // --------- Preview Value Selectors ---------
   const currentTopic = useMemo(() => {
     const hasBackend = selectedSubjects.some((s) => ["APIs", "Databases", "Caching", "Redis", "Kafka"].includes(s));
     const hasFrontend = selectedSubjects.some((s) => ["React", "CSS", "Web Performance", "SSR", "Hydration"].includes(s));
@@ -464,6 +518,7 @@ function MainApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSubjects, previewControls.enableCache, previewControls.useReadReplicas, previewControls.enableCodeSplit, previewControls.enableMemo, previewControls.mlReg]);
 
+  // --------- Scenario Generation (API Call) ---------
   const generateScenario = async () => {
     if (selectedSubjects.length === 0) {
       setQuestions([]);
@@ -471,9 +526,9 @@ function MainApp() {
       resetQuestionState();
       return;
     }
-  
+
     setLoading(true);
-  
+
     try {
       const response = await fetch(`${API_BASE}/generate`, {
         method: "POST",
@@ -486,26 +541,26 @@ function MainApp() {
           count: 5,
         }),
       });
-  
+
       const data = await response.json();
-  
+
       const rawQs = Array.isArray(data.questions) ? data.questions : [];
-  
+
       const qs: Question[] = rawQs.map((q: any) => {
         const safeType =
           q.type === "MCQ" ||
-          q.type === "Fill in the Blanks" ||
-          q.type === "Short Answer" ||
-          q.type === "Coding"
+            q.type === "Fill in the Blanks" ||
+            q.type === "Short Answer" ||
+            q.type === "Coding"
             ? q.type
             : "MCQ";
-  
+
         return {
           ...q,
           type: safeType,
         };
       });
-  
+
       setQuestions(qs);
       setCurrentIdx(0);
       resetQuestionState();
@@ -515,25 +570,40 @@ function MainApp() {
       setCurrentIdx(0);
       resetQuestionState();
     }
-  
+
     setLoading(false);
   };
-  
+
 
   const current = questions[currentIdx];
 
+  // --------- Code Editor Effects ---------
   useEffect(() => {
     if (!current || current.type !== "Coding") return;
-  
+
+    // Prefill code once (don’t overwrite user typing)
+    setCode((prev) => (prev && prev.trim().length ? prev : current.starterCode || "// implement solution here"));
+
+    // Infer language from question or topic, unless user manually changed it
+    const inferred = (current.language || "").trim().toLowerCase() || topicDefaultLanguage(currentTopic);
+    setCodeLanguage((prev) => (languageTouched ? prev : inferred));
+
+    setLanguageMenuOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIdx, current?.type]);
+
+  useEffect(() => {
+    if (!current || current.type !== "Coding") return;
+
     const req = (current.requiredTokens || [])
       .map((t) => t.trim())
       .filter(Boolean);
-  
+
     const src = code || "";
-  
+
     const matched: string[] = [];
     const missing: string[] = [];
-  
+
     for (const t of req) {
       if (src.toLowerCase().includes(t.toLowerCase())) {
         matched.push(t);
@@ -541,20 +611,21 @@ function MainApp() {
         missing.push(t);
       }
     }
-  
+
     const score = req.length ? matched.length / req.length : 0;
-  
+
     setCodeMatched(matched);
     setCodeMissing(missing);
     setCodeScore01(score);
   }, [code, current]);
-  
-  
 
+
+  // --------- Score & Outcome Handler ---------
+  // Updates the preview metrics based on whether the user's answer was correct or wrong.
   const applyOutcome = (kind: "correct" | "wrongHint" | "wrongFinal") => {
-  const hasBackend = currentTopic === "backend";
-  const hasFrontend = currentTopic === "frontend";
-  const hasML = currentTopic === "ml";
+    const hasBackend = currentTopic === "backend";
+    const hasFrontend = currentTopic === "frontend";
+    const hasML = currentTopic === "ml";
 
     if (hasBackend) {
       setBackend((b) => {
@@ -605,6 +676,7 @@ function MainApp() {
     }
   };
 
+  // --------- MCQ Handler ---------
   const onSelectOption = (idx: number) => {
     if (!current || current.type !== "MCQ") return;
     if (attemptsLeft <= 0 || feedback.status === "correct") return;
@@ -630,6 +702,7 @@ function MainApp() {
     }
   };
 
+  // --------- Fill in the Blanks Handler ---------
   const onSubmitBlank = () => {
     if (!current || current.type !== "Fill in the Blanks") return;
     if (attemptsLeft <= 0 || feedback.status === "correct") return;
@@ -689,6 +762,7 @@ function MainApp() {
     setShortScore01(score01);
   }, [shortAnswer, current]);
 
+  // --------- Short Answer Handler ---------
   const onSubmitShortAnswer = () => {
     if (!current || current.type !== "Short Answer") return;
     if (attemptsLeft <= 0 || feedback.status === "correct") return;
@@ -749,6 +823,7 @@ function MainApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, current]);
 
+  // --------- Navigation Handlers ---------
   const gotoPrev = () => {
     if (currentIdx > 0) {
       setCurrentIdx((i) => i - 1);
@@ -762,7 +837,7 @@ function MainApp() {
     }
   };
 
-  // Upload control
+  // --------- Upload Control State & Logic ---------
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -857,9 +932,8 @@ function MainApp() {
     return (
       <div onClick={() => toggleSubject(label)} className="flex items-center gap-3 cursor-pointer group select-none">
         <div
-          className={`w-5 h-5 flex items-center justify-center rounded-md border transition-all duration-200 ${
-            checked ? "bg-orange-500 border-orange-500 scale-105" : "border-neutral-700 group-hover:border-neutral-600"
-          }`}
+          className={`w-5 h-5 flex items-center justify-center rounded-md border transition-all duration-200 ${checked ? "bg-orange-500 border-orange-500 scale-105" : "border-neutral-700 group-hover:border-neutral-600"
+            }`}
         >
           <svg
             className={`w-3 h-3 text-white transition-all duration-200 ${checked ? "opacity-100 scale-100" : "opacity-0 scale-50"}`}
@@ -980,10 +1054,10 @@ function MainApp() {
     const valueClass = danger
       ? "text-red-200"
       : changed
-      ? "text-orange-300"
-      : good
-      ? "text-emerald-300"
-      : "text-neutral-200";
+        ? "text-orange-300"
+        : good
+          ? "text-emerald-300"
+          : "text-neutral-200";
 
     const ringClass = danger ? "ring-1 ring-red-600/40 border-red-700/40" : "border-neutral-800";
 
@@ -1238,11 +1312,10 @@ function MainApp() {
                     whileTap={{ scale: 0.94 }}
                     whileHover={{ scale: 1.04 }}
                     onClick={() => toggleQuestionType(type)}
-                    className={`px-3 py-1.5 text-sm rounded-full border transition ${
-                      selected
-                        ? "bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/20"
-                        : "bg-neutral-900 border-neutral-800 hover:border-neutral-700"
-                    }`}
+                    className={`px-3 py-1.5 text-sm rounded-full border transition ${selected
+                      ? "bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/20"
+                      : "bg-neutral-900 border-neutral-800 hover:border-neutral-700"
+                      }`}
                   >
                     {type}
                   </motion.button>
@@ -1336,9 +1409,8 @@ function MainApp() {
                         whileTap={{ scale: currentIdx > 0 ? 0.97 : 1 }}
                         onClick={gotoPrev}
                         disabled={currentIdx === 0}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl border font-medium ${
-                          currentIdx === 0 ? "border-neutral-900 text-neutral-600" : "border-neutral-800 hover:border-neutral-700"
-                        }`}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl border font-medium ${currentIdx === 0 ? "border-neutral-900 text-neutral-600" : "border-neutral-800 hover:border-neutral-700"
+                          }`}
                       >
                         <span className="text-lg">←</span>
                         <span className="text-sm">Prev</span>
@@ -1353,11 +1425,10 @@ function MainApp() {
                         whileTap={{ scale: currentIdx < questions.length - 1 ? 0.97 : 1 }}
                         onClick={gotoNext}
                         disabled={currentIdx >= questions.length - 1}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl border font-medium ${
-                          currentIdx >= questions.length - 1
-                            ? "border-neutral-900 text-neutral-600"
-                            : "border-neutral-800 hover:border-neutral-700"
-                        }`}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl border font-medium ${currentIdx >= questions.length - 1
+                          ? "border-neutral-900 text-neutral-600"
+                          : "border-neutral-800 hover:border-neutral-700"
+                          }`}
                       >
                         <span className="text-sm">Next</span>
                         <span className="text-lg">→</span>
@@ -1369,7 +1440,8 @@ function MainApp() {
                         <p className="text-[17px] leading-relaxed text-neutral-200">{current.scenario}</p>
                       </div>
 
-                      {current.type === "MCQ" && current.options && (
+                      {/* ---------------- MCQ UI ---------------- */}
+                      {current?.type === "MCQ" && current.options && (
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 min-w-0">
                           {current.options.map((opt, idx) => {
                             const disabled = attemptsLeft <= 0 || feedback.status === "correct";
@@ -1380,8 +1452,8 @@ function MainApp() {
                             const variant = isCorrect
                               ? "bg-emerald-300/15 border-emerald-300 text-emerald-200 focus:ring-emerald-400"
                               : isLastWrong
-                              ? "bg-red-300/15 border-red-300 text-red-200 focus:ring-red-400"
-                              : "bg-neutral-800 border-neutral-800 hover:border-neutral-700 focus:ring-orange-500";
+                                ? "bg-red-300/15 border-red-300 text-red-200 focus:ring-red-400"
+                                : "bg-neutral-800 border-neutral-800 hover:border-neutral-700 focus:ring-orange-500";
                             return (
                               <motion.button
                                 key={idx}
@@ -1399,7 +1471,8 @@ function MainApp() {
                         </div>
                       )}
 
-                      {current.type === "Fill in the Blanks" && (
+                      {/* ---------------- Fill in the Blanks UI ---------------- */}
+                      {current?.type === "Fill in the Blanks" && (
                         <div className="flex items-center gap-3">
                           <input
                             value={blankInput}
@@ -1419,148 +1492,193 @@ function MainApp() {
                         </div>
                       )}
 
-{current?.type === "Short Answer" && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="text-xs uppercase tracking-wide text-neutral-500">Short answer (max 4 lines)</div>
-            <div className="text-xs text-neutral-400">Score: {(shortScore01 * 100).toFixed(0)}%</div>
-          </div>
+                      {/* ---------------- Short Answer UI ---------------- */}
+                      {current?.type === "Short Answer" && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="text-xs uppercase tracking-wide text-neutral-500">Short answer (max 4 lines)</div>
+                            <div className="text-xs text-neutral-400">Score: {(shortScore01 * 100).toFixed(0)}%</div>
+                          </div>
 
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-950/50 p-3 space-y-2">
-            <textarea
-              value={shortAnswer}
-              onChange={(e) => {
-                const next = e.target.value;
-                setShortAnswer(next.split("\n").slice(0, 4).join("\n"));
-              }}
-              rows={4}
-              placeholder="Answer in up to 4 lines…"
-              className="w-full resize-none bg-neutral-900/40 border border-neutral-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-neutral-700"
-              disabled={attemptsLeft <= 0 || feedback.status === "correct"}
-            />
+                          <div className="rounded-2xl border border-neutral-800 bg-neutral-950/50 p-3 space-y-2">
+                            <textarea
+                              value={shortAnswer}
+                              onChange={(e) => {
+                                const next = e.target.value;
+                                setShortAnswer(next.split("\n").slice(0, 4).join("\n"));
+                              }}
+                              rows={4}
+                              placeholder="Answer in up to 4 lines…"
+                              className="w-full resize-none bg-neutral-900/40 border border-neutral-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-neutral-700"
+                              disabled={attemptsLeft <= 0 || feedback.status === "correct"}
+                            />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {Array.from({ length: 4 }).map((_, i) => {
-                const ok = shortLineOk[i];
-                return (
-                  <div
-                    key={i}
-                    className={`flex items-center justify-between rounded-xl border px-3 py-2 text-sm ${
-                      ok ? "border-emerald-700/40 bg-emerald-500/10" : "border-red-700/30 bg-red-500/10"
-                    }`}
-                  >
-                    <span className="text-neutral-300">Line {i + 1}</span>
-                    <span className={`font-semibold ${ok ? "text-emerald-200" : "text-red-200"}`}>{ok ? "✔" : "✖"}</span>
-                  </div>
-                );
-              })}
-            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {Array.from({ length: 4 }).map((_, i) => {
+                                const ok = shortLineOk[i];
+                                return (
+                                  <div
+                                    key={i}
+                                    className={`flex items-center justify-between rounded-xl border px-3 py-2 text-sm ${ok ? "border-emerald-700/40 bg-emerald-500/10" : "border-red-700/30 bg-red-500/10"
+                                      }`}
+                                  >
+                                    <span className="text-neutral-300">Line {i + 1}</span>
+                                    <span className={`font-semibold ${ok ? "text-emerald-200" : "text-red-200"}`}>{ok ? "✔" : "✖"}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
 
-            <div className="flex items-center justify-end">
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                onClick={onSubmitShortAnswer}
-                disabled={attemptsLeft <= 0 || feedback.status === "correct"}
-                className="px-4 py-2 rounded-2xl bg-orange-500 hover:bg-orange-600 disabled:bg-neutral-800 font-semibold"
-              >
-                Submit
-              </motion.button>
-            </div>
-          </div>
+                            <div className="flex items-center justify-end">
+                              <motion.button
+                                whileTap={{ scale: 0.98 }}
+                                onClick={onSubmitShortAnswer}
+                                disabled={attemptsLeft <= 0 || feedback.status === "correct"}
+                                className="px-4 py-2 rounded-2xl bg-orange-500 hover:bg-orange-600 disabled:bg-neutral-800 font-semibold"
+                              >
+                                Submit
+                              </motion.button>
+                            </div>
+                          </div>
 
-          {!!current.keywords?.length && (
-            <div className="text-xs text-neutral-500">
-              Looking for: <span className="text-neutral-300">{current.keywords.join(", ")}</span>
-            </div>
-          )}
-        </div>
-      )}
+                          {!!current.keywords?.length && (
+                            <div className="text-xs text-neutral-500">
+                              Looking for: <span className="text-neutral-300">{current.keywords.join(", ")}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
-{current?.type === "Coding" && (
-  <div className="space-y-4">
-    <div className="flex items-center justify-between">
-      <div className="text-xs uppercase tracking-wide text-neutral-500">
-        Code Editor
-      </div>
-      <div className="text-xs text-neutral-400">
-        {current.language || "plaintext"} •{" "}
-        {(codeScore01 * 100).toFixed(0)}%
-      </div>
-    </div>
+                      {/* ---------------- Coding Editor UI ---------------- */}
+                      {current?.type === "Coding" && (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div className="text-xs uppercase tracking-wide text-neutral-500">Code Editor</div>
 
-    <div className="rounded-2xl border border-neutral-800 bg-neutral-950/50 p-3">
-      <textarea
-        value={code}
-        onChange={(e) => setCode(e.target.value)}
-        spellCheck={false}
-        className="w-full h-80 font-mono text-[13px] leading-relaxed resize-none bg-neutral-900/40 border border-neutral-800 rounded-xl px-3 py-2 focus:outline-none focus:border-neutral-700"
-        placeholder={current.starterCode || "Write code here…"}
-        disabled={attemptsLeft <= 0 || feedback.status === "correct"}
-      />
-    </div>
+                            <div className="flex items-center gap-2">
+                              <div className="text-xs text-neutral-400">{(codeScore01 * 100).toFixed(0)}%</div>
 
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-      <div className="rounded-2xl border border-neutral-800 bg-neutral-950/60 p-3">
-        <div className="text-xs uppercase tracking-wide text-neutral-500 mb-2">
-          Matched
-        </div>
-        <div className="text-sm text-emerald-200">
-          {codeMatched.length ? codeMatched.join(", ") : "—"}
-        </div>
-      </div>
+                              <div className="relative">
+                                <motion.button
+                                  type="button"
+                                  whileTap={{ scale: 0.98 }}
+                                  whileHover={{ scale: 1.02 }}
+                                  onClick={() => setLanguageMenuOpen((v) => !v)}
+                                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-neutral-800 bg-neutral-900 hover:border-neutral-700 text-xs text-neutral-200"
+                                  aria-haspopup="listbox"
+                                  aria-expanded={languageMenuOpen}
+                                >
+                                  <span className="text-neutral-400">Lang</span>
+                                  <span className="font-semibold">{codeLanguage}</span>
+                                  <span className="text-neutral-500">▾</span>
+                                </motion.button>
 
-      <div className="rounded-2xl border border-neutral-800 bg-neutral-950/60 p-3">
-        <div className="text-xs uppercase tracking-wide text-neutral-500 mb-2">
-          Missing
-        </div>
-        <div className="text-sm text-red-200">
-          {codeMissing.length ? codeMissing.join(", ") : "—"}
-        </div>
-      </div>
-    </div>
+                                <AnimatePresence>
+                                  {languageMenuOpen && (
+                                    <motion.div
+                                      initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                                      transition={{ duration: 0.14 }}
+                                      className="absolute right-0 mt-2 w-44 rounded-2xl border border-neutral-800 bg-neutral-950 shadow-xl overflow-hidden z-10"
+                                      role="listbox"
+                                    >
+                                      {LANGUAGE_OPTIONS.map((opt) => {
+                                        const active = opt.id === codeLanguage;
+                                        return (
+                                          <button
+                                            key={opt.id}
+                                            type="button"
+                                            className={`w-full text-left px-3 py-2 text-xs transition ${active ? "bg-orange-500/15 text-orange-200" : "text-neutral-200 hover:bg-neutral-900"
+                                              }`}
+                                            onClick={() => {
+                                              setCodeLanguage(opt.id);
+                                              setLanguageTouched(true);
+                                              setLanguageMenuOpen(false);
+                                            }}
+                                          >
+                                            {opt.label}
+                                          </button>
+                                        );
+                                      })}
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                            </div>
+                          </div>
 
-    <div className="flex justify-end">
-      <motion.button
-        whileTap={{ scale: 0.98 }}
-        onClick={() => {
-          if (codeScore01 >= 0.85) {
-            setFeedback({
-              status: "correct",
-              hint:
-                "Solution looks structurally correct. Preview improved.",
-            });
-            applyOutcome("correct");
-          } else {
-            const remaining = attemptsLeft - 1;
-            setAttemptsLeft(remaining);
+                          <div className="rounded-2xl border border-neutral-800 bg-neutral-950/50 p-3">
+                            <textarea
+                              value={code}
+                              onChange={(e) => setCode(e.target.value)}
+                              spellCheck={false}
+                              className="w-full h-80 font-mono text-[13px] leading-relaxed resize-none bg-neutral-900/40 border border-neutral-800 rounded-xl px-3 py-2 focus:outline-none focus:border-neutral-700"
+                              placeholder={current.starterCode || "Write code here…"}
+                              disabled={attemptsLeft <= 0 || feedback.status === "correct"}
+                            />
+                          </div>
 
-            if (remaining <= 0) {
-              setFeedback({
-                status: "wrong",
-                hint: `Missing tokens: ${codeMissing.join(", ")}`,
-              });
-              applyOutcome("wrongFinal");
-            } else {
-              setFeedback({
-                status: "wrong",
-                hint: `Still missing: ${codeMissing.join(", ")}`,
-              });
-              applyOutcome("wrongHint");
-            }
-          }
-        }}
-        disabled={attemptsLeft <= 0 || feedback.status === "correct"}
-        className="px-4 py-2 rounded-2xl bg-orange-500 hover:bg-orange-600 disabled:bg-neutral-800 font-semibold"
-      >
-        Submit
-      </motion.button>
-    </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/60 p-3">
+                              <div className="text-xs uppercase tracking-wide text-neutral-500 mb-2">
+                                Matched
+                              </div>
+                              <div className="text-sm text-emerald-200">
+                                {codeMatched.length ? codeMatched.join(", ") : "—"}
+                              </div>
+                            </div>
 
-    <div className="text-xs text-neutral-500">
-      Preview updates only after submission.
-    </div>
-  </div>
-)}
+                            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/60 p-3">
+                              <div className="text-xs uppercase tracking-wide text-neutral-500 mb-2">
+                                Missing
+                              </div>
+                              <div className="text-sm text-red-200">
+                                {codeMissing.length ? codeMissing.join(", ") : "—"}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex justify-end">
+                            <motion.button
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => {
+                                if (codeScore01 >= 0.85) {
+                                  setFeedback({
+                                    status: "correct",
+                                    hint:
+                                      "Solution looks structurally correct. Preview improved.",
+                                  });
+                                  applyOutcome("correct");
+                                } else {
+                                  const remaining = attemptsLeft - 1;
+                                  setAttemptsLeft(remaining);
+
+                                  if (remaining <= 0) {
+                                    setFeedback({
+                                      status: "wrong",
+                                      hint: `Missing tokens: ${codeMissing.join(", ")}`,
+                                    });
+                                    applyOutcome("wrongFinal");
+                                  } else {
+                                    setFeedback({
+                                      status: "wrong",
+                                      hint: `Still missing: ${codeMissing.join(", ")}`,
+                                    });
+                                    applyOutcome("wrongHint");
+                                  }
+                                }
+                              }}
+                              disabled={attemptsLeft <= 0 || feedback.status === "correct"}
+                              className="px-4 py-2 rounded-2xl bg-orange-500 hover:bg-orange-600 disabled:bg-neutral-800 font-semibold"
+                            >
+                              Submit
+                            </motion.button>
+                          </div>
+
+                          <div className="text-xs text-neutral-500">Preview updates live as you type. </div>
+                        </div>
+                      )}
 
 
                       <div className="flex flex-col gap-3 text-sm">
