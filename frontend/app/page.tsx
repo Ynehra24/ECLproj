@@ -93,10 +93,19 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
 // ==========================================
 export default function Home() {
   const [showIntro, setShowIntro] = useState(true);
+  const [initialTopics, setInitialTopics] = useState<string[]>([]);
+
+  const handleStart = (topics: string[]) => {
+    setInitialTopics(topics);
+    setShowIntro(false);
+  };
+
   return (
     <div className={`${inter.variable} font-sans`}>
       <AnimatePresence mode="wait">
-        {showIntro ? <IntroScreen key="intro" onStart={() => setShowIntro(false)} /> : <MainApp key="main" />}
+        {showIntro
+          ? <IntroScreen key="intro" onStart={handleStart} />
+          : <MainApp key="main" initialTopics={initialTopics} />}
       </AnimatePresence>
     </div>
   );
@@ -105,32 +114,168 @@ export default function Home() {
 // ==========================================
 // INTRO SCREEN COMPONENT
 // ==========================================
-function IntroScreen({ onStart }: { onStart: () => void }) {
+function IntroScreen({ onStart }: { onStart: (topics: string[]) => void }) {
+  const [query, setQuery] = useState("");
+  const [inputFocused, setInputFocused] = useState(false);
+
+  // Flat catalog mirroring the backend CATALOG — used for client-side matching
+  const CATALOG_ITEMS: string[] = [
+    "React", "Next.js", "TypeScript", "JavaScript", "CSS", "TailwindCSS", "Accessibility", "Web Performance",
+    "State Management", "Redux", "Zustand", "MobX", "Testing Library", "Jest", "Playwright",
+    "Animations", "Framer Motion", "SSR", "CSR", "Hydration", "Code Splitting", "Memoization",
+    "WebSockets", "Service Workers", "PWA", "i18n", "Form Handling", "React Query", "TanStack Query",
+    "Vite", "Webpack", "Babel", "Storybook", "Design Systems", "Component Architecture", "Hooks", "Context API",
+    "APIs", "REST", "GraphQL", "gRPC", "Microservices", "Monolith", "Caching", "Redis", "Queues", "RabbitMQ",
+    "Kafka", "Databases", "PostgreSQL", "MySQL", "MongoDB", "ORM", "Prisma", "SQLAlchemy", "Auth", "OAuth2",
+    "JWT", "Rate Limiting", "Circuit Breaker", "Observability", "Metrics", "Tracing", "Logging", "Testing",
+    "Pagination", "Idempotency", "Schema Migrations", "Multi-tenancy", "API Gateway", "Service Discovery",
+    "Docker", "Kubernetes", "Helm", "CI/CD", "GitHub Actions", "Terraform", "Ansible", "Prometheus", "Grafana",
+    "ArgoCD", "Autoscaling", "Blue-Green", "Canary", "Load Balancing", "Nginx", "Istio", "Linkerd",
+    "Secrets", "ConfigMaps", "RBAC", "Ingress", "EKS", "GKE", "AKS", "Cost Optimization",
+    "Scalability", "Availability", "Consistency", "CAP Theorem", "Sharding", "Replication", "Leader Election",
+    "Distributed Caching", "CDN", "Global Traffic", "Failover", "Backpressure", "Event Sourcing", "CQRS",
+    "Read/Write Splitting", "Geo-partitioning", "Hot Partitions",
+    "Model Training", "Data Preprocessing", "Feature Engineering", "Cross Validation", "Regularization",
+    "Hyperparameter Tuning", "Overfitting", "Underfitting", "Model Serving", "Batch Inference",
+    "Streaming Inference", "Embeddings", "Vector Databases", "Evaluation", "Drift Detection",
+    "A/B Testing", "Monitoring", "Retraining",
+    "React Native", "Swift", "Kotlin", "Android", "iOS", "Flutter", "Performance", "Offline Sync",
+    "Push Notifications", "Background Tasks", "Deep Links", "App Store", "Play Store", "Crash Reporting",
+    "OWASP", "Input Validation", "XSS", "CSRF", "SQL Injection", "Secrets Management",
+    "Vulnerability Scanning", "Penetration Testing", "Threat Modeling", "Audit Logging",
+    "Encryption", "TLS", "mTLS", "SSO",
+    "ETL", "ELT", "Batch Processing", "Stream Processing", "Spark", "Flink", "Airflow", "dbt", "Lakehouse",
+    "Delta Lake", "Data Quality", "Data Lineage", "Data Catalog", "Parquet", "Iceberg", "Hudi",
+  ];
+
+  const matchTopics = (text: string): string[] => {
+    if (!text.trim()) return [];
+    const lower = text.toLowerCase();
+    return CATALOG_ITEMS.filter(item => lower.includes(item.toLowerCase()));
+  };
+
+  const handleSubmit = () => {
+    const matched = matchTopics(query);
+    onStart(matched);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") handleSubmit();
+  };
+
+  const suggestions = query.length > 1 ? matchTopics(query).slice(0, 6) : [];
+
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 1.02 }}
-      transition={{ duration: 0.6 }}
+      transition={{ duration: 0.5 }}
       className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center relative overflow-hidden"
     >
-      <div className="absolute w-[600px] h-[600px] bg-orange-500/10 blur-3xl rounded-full" />
-      <div className="flex flex-col items-center gap-6 relative z-10">
+      {/* Ambient glow */}
+      <div className="absolute w-[700px] h-[700px] bg-orange-500/8 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-orange-600/5 blur-[80px] rounded-full pointer-events-none" />
+
+      <div className="flex flex-col items-center gap-10 relative z-10 w-full max-w-xl px-6">
+        {/* Logo */}
         <motion.img
           src="/ECL_LOGO_Sage.png"
           alt="SAGE Logo"
-          initial={{ opacity: 0, y: 30, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.8 }}
-          className="w-72 md:w-[400px] drop-shadow-2xl"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: "easeOut" }}
+          className="w-48 md:w-64 drop-shadow-2xl"
         />
-        <motion.button
-          whileHover={{ scale: 1.04 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={onStart}
-          className="bg-orange-500 hover:bg-orange-600 px-7 py-3 rounded-2xl font-semibold shadow-md hover:shadow-lg tracking-wide"
+
+        {/* Headline */}
+        <motion.div
+          className="text-center"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.15 }}
         >
-          Get Started
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-neutral-100 mb-2">
+            What do you want to learn?
+          </h1>
+          <p className="text-neutral-400 text-sm md:text-base">
+            Type a topic, skill, or technology — SAGE will find the right questions.
+          </p>
+        </motion.div>
+
+        {/* Input */}
+        <motion.div
+          className="w-full relative"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.28 }}
+        >
+          <div
+            className={`flex items-center gap-3 rounded-2xl border px-4 py-3.5 transition-all duration-200 ${inputFocused
+                ? "border-orange-500/60 bg-neutral-900 shadow-[0_0_32px_rgba(249,115,22,0.12)]"
+                : "border-neutral-800 bg-neutral-900/80"
+              }`}
+          >
+            {/* Search icon */}
+            <svg className="w-5 h-5 text-neutral-500 shrink-0" fill="none" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8" />
+              <path d="m20 20-3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+
+            <input
+              autoFocus
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+              placeholder="e.g. React hooks, Docker, PostgreSQL…"
+              className="flex-1 bg-transparent text-neutral-100 placeholder-neutral-500 text-base outline-none"
+            />
+
+            {/* Submit arrow button */}
+            <motion.button
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.93 }}
+              onClick={handleSubmit}
+              className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-orange-500 hover:bg-orange-600 transition shadow-md shadow-orange-500/30"
+            >
+              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24">
+                <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </motion.button>
+          </div>
+
+          {/* Live topic suggestions */}
+          {suggestions.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="absolute top-full mt-2 left-0 right-0 flex flex-wrap gap-2 px-1"
+            >
+              {suggestions.map(s => (
+                <span
+                  key={s}
+                  className="px-2.5 py-1 rounded-full text-xs font-medium bg-orange-500/15 text-orange-300 border border-orange-500/20"
+                >
+                  {s}
+                </span>
+              ))}
+            </motion.div>
+          )}
+        </motion.div>
+
+        {/* Skip link */}
+        <motion.button
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          onClick={() => onStart([])}
+          className="text-sm text-neutral-500 hover:text-neutral-300 transition underline underline-offset-4"
+        >
+          Skip — I&apos;ll pick topics manually
         </motion.button>
       </div>
     </motion.div>
@@ -170,7 +315,7 @@ const LANGUAGE_OPTIONS = [
 // ==========================================
 // MAIN APPLICATION COMPONENT
 // ==========================================
-function MainApp() {
+function MainApp({ initialTopics = [] }: { initialTopics?: string[] }) {
   // --------- Hardcoded Topics Data ---------
   const SUBJECTS: { name: string; items: string[] }[] = [
     {
@@ -396,8 +541,23 @@ function MainApp() {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
-  const [openSections, setOpenSections] = useState<string[]>([]);
+  const [selectedSubjects, setSelectedSubjects] = useState<string[]>(initialTopics);
+  const [openSections, setOpenSections] = useState<string[]>(
+    (() => {
+      // Pre-open sections that contain any of the initial topics
+      if (!initialTopics.length) return [];
+      return [
+        { name: "Frontend", items: ["React", "Next.js", "TypeScript", "JavaScript", "CSS", "TailwindCSS", "Accessibility", "Web Performance", "State Management", "Redux", "Zustand", "MobX", "Testing Library", "Jest", "Playwright", "Animations", "Framer Motion", "SSR", "CSR", "Hydration", "Code Splitting", "Memoization", "WebSockets", "Service Workers", "PWA", "i18n", "Form Handling", "React Query", "TanStack Query", "Vite", "Webpack", "Babel", "Storybook", "Design Systems", "Component Architecture", "Hooks", "Context API"] },
+        { name: "Backend", items: ["APIs", "REST", "GraphQL", "gRPC", "Microservices", "Monolith", "Caching", "Redis", "Queues", "RabbitMQ", "Kafka", "Databases", "PostgreSQL", "MySQL", "MongoDB", "ORM", "Prisma", "SQLAlchemy", "Auth", "OAuth2", "JWT", "Rate Limiting", "Circuit Breaker", "Observability", "Metrics", "Tracing", "Logging", "Testing", "Pagination", "Idempotency", "Schema Migrations", "Multi-tenancy", "API Gateway", "Service Discovery"] },
+        { name: "DevOps", items: ["Docker", "Kubernetes", "Helm", "CI/CD", "GitHub Actions", "Terraform", "Ansible", "Prometheus", "Grafana", "ArgoCD", "Autoscaling", "Blue-Green", "Canary", "Load Balancing", "Nginx", "Istio", "Linkerd", "Secrets", "ConfigMaps", "RBAC", "Ingress", "EKS", "GKE", "AKS", "Cost Optimization"] },
+        { name: "System Design", items: ["Scalability", "Availability", "Consistency", "CAP Theorem", "Sharding", "Replication", "Leader Election", "Distributed Caching", "CDN", "Global Traffic", "Failover", "Backpressure", "Rate Limiting", "Event Sourcing", "CQRS", "Read/Write Splitting", "Geo-partitioning", "Hot Partitions"] },
+        { name: "Machine Learning", items: ["Model Training", "Data Preprocessing", "Feature Engineering", "Cross Validation", "Regularization", "Hyperparameter Tuning", "Overfitting", "Underfitting", "Model Serving", "Batch Inference", "Streaming Inference", "Embeddings", "Vector Databases", "Evaluation", "Drift Detection", "A/B Testing", "Monitoring", "Retraining"] },
+        { name: "Mobile", items: ["React Native", "Swift", "Kotlin", "Android", "iOS", "Flutter", "Performance", "Offline Sync", "Push Notifications", "Background Tasks", "Deep Links", "App Store", "Play Store", "Crash Reporting"] },
+        { name: "Security", items: ["OWASP", "Input Validation", "XSS", "CSRF", "SQL Injection", "Secrets Management", "Vulnerability Scanning", "Penetration Testing", "Threat Modeling", "Audit Logging", "Encryption", "TLS", "mTLS", "SSO"] },
+        { name: "Data Engineering", items: ["ETL", "ELT", "Batch Processing", "Stream Processing", "Spark", "Flink", "Airflow", "dbt", "Lakehouse", "Delta Lake", "Data Quality", "Data Lineage", "Data Catalog", "Parquet", "Iceberg", "Hudi"] },
+      ].filter(s => s.items.some(i => initialTopics.includes(i))).map(s => s.name);
+    })()
+  );
   const [questionTypes, setQuestionTypes] = useState<string[]>(["MCQ"]);
   const [difficulty, setDifficulty] = useState<string>("Bachelor");
   const [attemptsLeft, setAttemptsLeft] = useState(2);
@@ -1053,95 +1213,7 @@ function MainApp() {
     }
   };
 
-  // --------- Upload Control State & Logic ---------
-  const [uploading, setUploading] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const onUploadPDF = async (file: File) => {
-    setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-
-      const res = await fetch(`${API_BASE}/extract-topics`, { method: "POST", body: fd });
-
-      const raw = await res.text();
-      if (!res.ok) throw new Error(`Upload failed: ${res.status} ${res.statusText} - ${raw}`);
-
-      const data = (raw ? JSON.parse(raw) : {}) as { topics?: string[] };
-      const topics = Array.isArray(data.topics) ? data.topics : [];
-
-      setSelectedSubjects((prev) => Array.from(new Set([...prev, ...topics])));
-
-      const containingSections = SUBJECTS.filter((s) => s.items.some((i) => topics.includes(i))).map((s) => s.name);
-      setOpenSections((prev) => Array.from(new Set([...prev, ...containingSections])));
-    } catch (e) {
-      console.error("PDF upload failed:", e);
-    } finally {
-      setUploading(false);
-      setDragOver(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file && file.type === "application/pdf") onUploadPDF(file);
-  };
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setDragOver(true);
-  };
-  const handleDragLeave = () => setDragOver(false);
-
-  const UploadPDFControl = () => (
-    <div className="relative">
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="application/pdf"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) onUploadPDF(f);
-        }}
-        className="hidden"
-      />
-      <motion.button
-        whileHover={{ scale: 1.03 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={() => fileInputRef.current?.click()}
-        className={`group inline-flex items-center gap-2 px-3 py-2 rounded-xl border transition-all text-sm font-medium
-          ${uploading ? "bg-neutral-800 border-neutral-700 text-neutral-300" : "bg-neutral-900 border-neutral-800 hover:border-neutral-700"}
-        `}
-        title="Upload a PDF to auto-select topics"
-      >
-        <span className="relative inline-flex items-center justify-center w-5 h-5">
-          <svg className="w-4 h-4 text-neutral-300 group-hover:text-neutral-100 transition" viewBox="0 0 24 24" fill="none">
-            <path d="M12 16v-8m0 0l-4 4m4-4l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            <path
-              d="M20 16.5V17a3 3 0 01-3 3H7a3 3 0 01-3-3v-.5"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          {uploading && <span className="absolute inset-0 animate-ping rounded-full bg-orange-500/20" />}
-        </span>
-        <span className="text-neutral-200">Upload PDF</span>
-        {uploading && (
-          <span className="ml-2 inline-flex items-center gap-1 text-xs text-neutral-400">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 animate-bounce" />
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 animate-bounce [animation-delay:.15s]" />
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 animate-bounce [animation-delay:.3s]" />
-          </span>
-        )}
-      </motion.button>
-      {dragOver && <span className="absolute -top-7 right-0 text-xs text-neutral-400">Drop PDF here</span>}
-    </div>
-  );
+  // (PDF upload removed)
 
   const Checkbox = ({ label }: { label: string }) => {
     const checked = selectedSubjects.includes(label);
@@ -1649,19 +1721,11 @@ function MainApp() {
   };
 
   return (
-    <div
-      className={`min-h-screen bg-neutral-950 text-neutral-100 transition-colors ${dragOver ? "bg-neutral-900/60" : ""}`}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-    >
+    <div className="min-h-screen bg-neutral-950 text-neutral-100">
       <header className="h-16 border-b border-neutral-900 bg-neutral-950/70 backdrop-blur flex items-center px-6">
         <div className="flex items-center gap-3">
           <img src="/ECL_LOGO_Sage.png" className="w-7 h-7 rounded-sm" alt="SAGE" />
           <span className="font-semibold text-xl tracking-wide">SAGE</span>
-        </div>
-        <div className="ml-auto flex items-center gap-3">
-          <UploadPDFControl />
         </div>
       </header>
 
@@ -1692,17 +1756,24 @@ function MainApp() {
 
           <div className="mt-2">
             <p className="text-xs uppercase tracking-wide text-neutral-500 mb-2">Difficulty</p>
-            <select
-              value={difficulty}
-              onChange={(e) => setDifficulty(e.target.value)}
-              className="w-full bg-neutral-900 border border-neutral-800 text-neutral-200 text-sm rounded-xl px-3 py-2 outline-none focus:border-neutral-600 transition"
-            >
-              <option value="Middle School">Middle School</option>
-              <option value="High School">High School</option>
-              <option value="Bachelor">Bachelor</option>
-              <option value="Working Professional">Working Professional</option>
-              <option value="Veteran">Veteran</option>
-            </select>
+            <div className="relative">
+              <select
+                value={difficulty}
+                onChange={(e) => setDifficulty(e.target.value)}
+                className="w-full appearance-none bg-neutral-900 border border-neutral-800 text-neutral-200 text-sm rounded-xl pl-3 pr-9 py-2.5 outline-none focus:border-neutral-600 transition cursor-pointer"
+              >
+                <option value="Middle School">Middle School</option>
+                <option value="High School">High School</option>
+                <option value="Bachelor">Bachelor</option>
+                <option value="Working Professional">Working Professional</option>
+                <option value="Veteran">Veteran</option>
+              </select>
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+            </div>
           </div>
 
           <motion.button
