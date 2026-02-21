@@ -10,6 +10,22 @@ import random
 import json
 import re
 
+# Database & Auth Integrations
+from sqlalchemy.orm import Session
+from fastapi import Depends, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jose import JWTError, jwt
+
+import models
+import schemas
+import auth
+from database import engine, get_db
+
+# Create SQLite tables
+models.Base.metadata.create_all(bind=engine)
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
+
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQAPI_KEY", "")
 _groq_client: Optional[Groq] = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
@@ -671,3 +687,92 @@ async def extract_topics(file: UploadFile = File(...)):
         matched = call_openrouter_topics(text)
 
     return {"topics": matched}
+
+# -----------------------------
+# Authentication & User Routes
+# -----------------------------
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+        token_data = schemas.TokenData(email=email)
+    except JWTError:
+        raise credentials_exception
+    
+    user = db.query(models.User).filter(models.User.email == token_data.email).first()
+    if user is None:
+        raise credentials_exception
+    return user
+
+
+@app.post("/api/auth/register", response_model=schemas.User)
+def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    db_user = db.query(models.User).filter(models.User.email == user.email).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    hashed_password = auth.get_password_hash(user.password)
+    new_user = models.User(
+        email=user.email,
+        full_name=user.full_name,
+        hashed_password=hashed_password
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
+
+
+@app.post("/api/auth/login", response_model=schemas.Token)
+def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email == form_data.username).first()
+    if not user or not auth.verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    access_token = auth.create_access_token(data={"sub": user.email})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@app.get("/api/users/me", response_model=schemas.User)
+def read_users_me(current_user: models.User = Depends(get_current_user)):
+    return current_user
+
+
+@app.post("/api/users/me/activities", response_model=schemas.Activity)
+def create_user_activity(
+    activity: schemas.ActivityCreate, 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
+    db_activity = models.UserActivity(
+        user_id=current_user.id,
+        topic=activity.topic,
+        title=activity.title,
+        status=activity.status
+    )
+    db.add(db_activity)
+    db.commit()
+    db.refresh(db_activity)
+    return db_activity
+
+@app.get("/api/users/me/activities", response_model=List[schemas.Activity])
+def read_user_activities(
+    skip: int = 0, limit: int = 20, 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
+    activities = db.query(models.UserActivity).filter(
+        models.UserActivity.user_id == current_user.id
+    ).order_by(models.UserActivity.timestamp.desc()).offset(skip).limit(limit).all()
+    return activities
