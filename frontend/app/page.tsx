@@ -1781,9 +1781,16 @@ function MainApp({ initialTopics = [] }: { initialTopics?: string[] }) {
           <img src="/ECL_LOGO_Sage.png" className="w-7 h-7 rounded-sm" alt="SAGE" />
           <span className="font-semibold text-xl tracking-wide">SAGE</span>
         </div>
-        <nav>
-          <Link href="/about" className="text-sm font-medium text-neutral-400 hover:text-orange-400 transition-colors px-3 py-2 rounded-lg hover:bg-orange-500/10">
+        <nav className="flex items-center gap-1">
+          <Link href="/about" className="text-sm font-medium text-neutral-400 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-neutral-900">
             About SAGE
+          </Link>
+          <Link href="/profile" className="text-sm font-medium text-neutral-400 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-neutral-900">
+            Dashboard
+          </Link>
+          <div className="w-px h-4 bg-neutral-800 mx-2" />
+          <Link href="/login" className="text-sm font-medium px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20 transition-all">
+            Login
           </Link>
         </nav>
       </header>

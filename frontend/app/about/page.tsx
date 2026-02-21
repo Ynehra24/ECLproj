@@ -52,18 +52,26 @@ export default function AboutPage() {
                     </motion.div>
                     <span className="font-semibold text-xl tracking-wide group-hover:text-orange-400 transition-colors">SAGE</span>
                 </Link>
-                <Link href="/">
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="px-5 py-2 rounded-full border border-neutral-800 bg-neutral-900/80 hover:border-orange-500/50 hover:bg-neutral-800 text-sm font-medium transition-all shadow-[0_0_15px_rgba(0,0,0,0)] hover:shadow-[0_0_20px_rgba(249,115,22,0.15)] flex items-center gap-2"
-                    >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                        </svg>
-                        Back to App
-                    </motion.button>
-                </Link>
+                <div className="flex items-center gap-3">
+                    <Link href="/profile" className="text-sm font-medium text-neutral-400 hover:text-white transition-colors px-4 py-2 rounded-lg hover:bg-neutral-900/80">
+                        Dashboard
+                    </Link>
+                    <Link href="/login" className="text-sm font-medium px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white transition-all">
+                        Login
+                    </Link>
+                    <Link href="/">
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="px-5 py-2 rounded-full border border-neutral-800 bg-neutral-900/80 hover:border-orange-500/50 hover:bg-neutral-800 text-sm font-medium transition-all shadow-[0_0_15px_rgba(0,0,0,0)] hover:shadow-[0_0_20px_rgba(249,115,22,0.15)] flex items-center gap-2"
+                        >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                            Back to App
+                        </motion.button>
+                    </Link>
+                </div>
             </header>
 
             {/* Main Content */}
