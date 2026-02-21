@@ -2258,116 +2258,62 @@ function MainApp({ initialTopics = [] }: { initialTopics?: string[] }) {
                   const wrongFinal = feedback.status === "wrong" && attemptsLeft <= 0;
                   const previewOutline = wrongFinal ? "ring-2 ring-red-600/60" : "ring-1 ring-neutral-800/0";
 
-                  // --- Per-question incident data seeds ---
+                  // --- Fully question-derived incident data ---
+                  // Extract the topic label from the scenario prefix "(Topic: X)"
+                  const qTopicLabel = (current?.scenario ?? "").match(/\(Topic:\s*([^)]+)\)/)?.[1] ?? currentTopic;
                   const qTokens = current?.requiredTokens ?? [];
-                  const fnName = qTokens.find(t => t.startsWith("def ") || t.startsWith("function ") || t.includes("(")) ?? qTokens[0] ?? "unknown_fn";
-                  const missingList = codeMissing.length ? codeMissing.join(", ") : "(none)";
-                  const scenarioSnippet = (current?.scenario ?? "").slice(0, 60).replace(/\(.*?\)/g, "").trim();
-                  const qSeed = currentIdx + 1; // 1-based question number for readable IDs
 
-                  const incidentConfig: Record<string, { title: string; icon: string; rows: { label: string; value: string; bad?: boolean }[] }> = {
-                    backend: {
-                      title: "Production DB Error Log",
-                      icon: "🗄️",
-                      rows: [
-                        { label: "Function", value: fnName, bad: true },
-                        { label: "Missing", value: missingList, bad: true },
-                        { label: "Query ID", value: `txn-${qSeed}-${Date.now() % 9999}`, bad: true },
-                        { label: "DB error", value: "deadlock detected (lock timeout)", bad: true },
-                        { label: "Rollback", value: "auto-initiated" },
-                      ],
-                    },
-                    frontend: {
-                      title: "UI Runtime Exception",
-                      icon: "💻",
-                      rows: [
-                        { label: "Function", value: fnName, bad: true },
-                        { label: "Missing", value: missingList, bad: true },
-                        { label: "Component", value: `<Q${qSeed}Widget> line ${qSeed * 7 + 12}`, bad: true },
-                        { label: "Re-renders", value: "∞ (loop caused by missing dep)", bad: true },
-                        { label: "Hydration", value: "MISMATCH — server/client diverged" },
-                      ],
-                    },
-                    ml: {
-                      title: "Training Run Crashed",
-                      icon: "🧠",
-                      rows: [
-                        { label: "Function", value: fnName, bad: true },
-                        { label: "Missing", value: missingList, bad: true },
-                        { label: "Run ID", value: `run-${qSeed}-${Date.now() % 9999}`, bad: true },
-                        { label: "Error", value: `NaN loss at step ${qSeed * 13}`, bad: true },
-                        { label: "Checkpoint", value: "not saved — rollback needed" },
-                      ],
-                    },
-                    devops: {
-                      title: "Pipeline Failure",
-                      icon: "⚙️",
-                      rows: [
-                        { label: "Function", value: fnName, bad: true },
-                        { label: "Missing", value: missingList, bad: true },
-                        { label: "Job ID", value: `ci-${qSeed}-${Date.now() % 9999}`, bad: true },
-                        { label: "Exit code", value: `${qSeed % 5 + 1} — CrashLoopBackOff`, bad: true },
-                        { label: "Rollback", value: "auto-triggered" },
-                      ],
-                    },
-                    sysdesign: {
-                      title: "System Outage Alert",
-                      icon: "🌐",
-                      rows: [
-                        { label: "Function", value: fnName, bad: true },
-                        { label: "Missing", value: missingList, bad: true },
-                        { label: "Incident ID", value: `INC-${Date.now() % 9999}`, bad: true },
-                        { label: "p99 latency", value: `${qSeed * 1.4 + 9}s`, bad: true },
-                        { label: "On-call", value: `eng-${qSeed} paged` },
-                      ],
-                    },
-                    mobile: {
-                      title: "App Crash Report",
-                      icon: "📱",
-                      rows: [
-                        { label: "Function", value: fnName, bad: true },
-                        { label: "Missing", value: missingList, bad: true },
-                        { label: "Crash ID", value: `crash-${qSeed}-${Date.now() % 9999}`, bad: true },
-                        { label: "Crash rate", value: `${(qSeed * 2.1).toFixed(1)}%`, bad: true },
-                        { label: "Store", value: "Play Store review flagged" },
-                      ],
-                    },
-                    security: {
-                      title: "Security Incident",
-                      icon: "🔐",
-                      rows: [
-                        { label: "Function", value: fnName, bad: true },
-                        { label: "Missing", value: missingList, bad: true },
-                        { label: "CVE ID", value: `CVE-2025-${qSeed * 317 % 9999}`, bad: true },
-                        { label: "Vector", value: `unescaped input in ${scenarioSnippet || fnName}`, bad: true },
-                        { label: "SIEM", value: "alert fired — investigation started" },
-                      ],
-                    },
-                    dataeng: {
-                      title: "Pipeline Dead-lock",
-                      icon: "📊",
-                      rows: [
-                        { label: "Function", value: fnName, bad: true },
-                        { label: "Missing", value: missingList, bad: true },
-                        { label: "Job ID", value: `etl-q${qSeed}-${Date.now() % 9999}`, bad: true },
-                        { label: "Backlog", value: `${qSeed * 3.7}M events queued`, bad: true },
-                        { label: "Freshness", value: `${qSeed + 1}h ${qSeed * 7}m behind SLA` },
-                      ],
-                    },
-                    generic: {
-                      title: "System Error",
-                      icon: "⚠️",
-                      rows: [
-                        { label: "Function", value: fnName, bad: true },
-                        { label: "Missing", value: missingList, bad: true },
-                        { label: "Trace ID", value: `err-${qSeed}-${Date.now() % 9999}`, bad: true },
-                        { label: "Code", value: "500 Internal Server Error", bad: true },
-                        { label: "Recovery", value: "manual intervention required" },
-                      ],
-                    },
+                  // Primary function / identifier the question asks to implement
+                  const primaryFn = qTokens.find(t => /[.(]/.test(t)) ?? qTokens[0] ?? "unknownFn";
+                  // Secondary token (method/key the implementation must call)
+                  const secondaryFn = qTokens.find(t => t !== primaryFn) ?? qTokens[1] ?? "handler";
+                  // First missing token from the user's submission
+                  const firstMissing = codeMissing[0] ?? "(none)";
+                  const allMissing = codeMissing.length ? codeMissing.join(", ") : "(none)";
+
+                  // 1-based question number used in IDs
+                  const qSeed = currentIdx + 1;
+                  // A unique trace/job ID seeded from question index + timestamp
+                  const traceId = `${qTopicLabel.replace(/\s/g, "-").slice(0, 8).toUpperCase()}-Q${qSeed}-${Date.now() % 9999}`;
+
+                  // Affected system/component name derived from the scenario text
+                  // Try to grab a PascalCase or camelCase word from the scenario
+                  const affectedMatch = (current?.scenario ?? "").match(/\b([A-Za-z][a-z]+(?:[A-Z][a-z]+)+|[A-Z]{2,}[a-zA-Z]*)\b/);
+                  const affectedSystem = affectedMatch?.[1] ?? primaryFn;
+
+                  // Error message referencing the missing token and primary function
+                  const topicIcons: Record<string, string> = {
+                    backend: "🗄️", frontend: "💻", ml: "🧠", devops: "⚙️",
+                    sysdesign: "🌐", mobile: "📱", security: "🔐", dataeng: "📊",
                   };
 
-                  const inc = incidentConfig[currentTopic] ?? incidentConfig.generic;
+                  const incMeta: Record<string, { category: string; errorType: string; systemLabel: string }> = {
+                    backend: { category: "DB Exception", errorType: `${primaryFn}() caused deadlock — missing \`${firstMissing}\``, systemLabel: `${affectedSystem} service` },
+                    frontend: { category: "UI Runtime Error", errorType: `Uncaught error in ${primaryFn}() — \`${firstMissing}\` not defined`, systemLabel: `<${affectedSystem}> component` },
+                    ml: { category: "Training Failure", errorType: `${primaryFn} diverged at step ${qSeed * 13} — \`${firstMissing}\` absent`, systemLabel: `${qTopicLabel} pipeline` },
+                    devops: { category: "Pipeline Failure", errorType: `${primaryFn} step exited ${qSeed % 5 + 1} — \`${firstMissing}\` undefined`, systemLabel: `${qTopicLabel} job` },
+                    sysdesign: { category: "System Outage", errorType: `${affectedSystem} unreachable — \`${firstMissing}\` not implemented`, systemLabel: `${qTopicLabel} layer` },
+                    mobile: { category: "App Crash", errorType: `ANR in ${primaryFn}() — \`${firstMissing}\` threw NPE`, systemLabel: `${affectedSystem} screen` },
+                    security: { category: "Security Incident", errorType: `${affectedSystem} exposed via missing \`${firstMissing}\` check`, systemLabel: `${qTopicLabel} auth layer` },
+                    dataeng: { category: "Pipeline Deadlock", errorType: `${primaryFn} stalled — \`${firstMissing}\` not flushed`, systemLabel: `${qTopicLabel} job` },
+                    generic: { category: "System Error", errorType: `${primaryFn}() threw — \`${firstMissing}\` missing`, systemLabel: `${affectedSystem}` },
+                  };
+
+                  const meta = incMeta[currentTopic] ?? incMeta.generic;
+                  const inc = {
+                    icon: topicIcons[currentTopic] ?? "⚠️",
+                    title: `${meta.category}: ${primaryFn}()`,
+                    rows: [
+                      { label: "System", value: meta.systemLabel, bad: true },
+                      { label: "Error", value: meta.errorType, bad: true },
+                      { label: "Missing", value: allMissing, bad: true },
+                      { label: "Requires", value: `${primaryFn}() → ${secondaryFn}`, bad: true },
+                      { label: "Trace ID", value: traceId },
+                    ],
+                  };
+
+                  // (legacy config removed — inc is now fully question-specific above)
+                  void 0;
 
                   return (
                     <>
