@@ -346,14 +346,14 @@ def fallback_questions(subjects: List[str], count: int, force_type: Optional[str
         if force_type == "Coding":
             q = Question(
                 type="Coding",
-                scenario=f"(Topic: {topic}) Implement a feature. You are given a basic structure. Complete the missing implementation.",
+                scenario=f"(Topic: {topic}) Implement a function that calculates the sum of all even numbers in a given list. You are given a basic structure. Complete the missing implementation.",
                 options=None,
                 correctIndex=None,
-                hint="Make sure to define the function and return the correct value.",
-                reason="This is the standard approach for this feature.",
-                answer="def example_solution():\n    return 'success'",
-                starterCode="def example_solution():\n    # Implement here\n    pass",
-                requiredTokens=["def", "return"],
+                hint="Make sure to define the function, loop through the list, and return the correct sum.",
+                reason="This is the standard approach for this feature, iterating through the list and conditionally adding to a running total.",
+                answer="def sum_even_numbers(numbers):\n    total = 0\n    for num in numbers:\n        if num % 2 == 0:\n            total += num\n    return total",
+                starterCode="def sum_even_numbers(numbers):\n    # Implement here\n    pass",
+                requiredTokens=["def", "return", "for", "if"],
                 language="python"
             )
         else:
@@ -398,7 +398,7 @@ def call_openrouter(subjects: List[str], types: List[str], count: int) -> List[Q
         f"Allowed types: {json.dumps(types)}\n"
         f"Total questions: {count}\n\n"
         "RULE 1: The 'scenario' string MUST begin with the explicit string '(Topic: <assigned_topic>)' so the system can verify adherence.\n"
-        "RULE 2: For 'Coding' type questions, DO NOT create a realistic or situational story. Simply ask the user to implement a specific feature or function. Be direct. Example: 'Implement a function to fetch user data using React Query and handle the loading state.'\n"
+        "RULE 2: For 'Coding' type questions, DO NOT create a realistic or situational story. Directly and explicitly state the EXACT feature, function, or component the user needs to implement. Example: 'Implement a function named `fetchUserData` that makes an API call using React Query and returns the data, handling the loading state appropriately.'\n"
         "RULE 3: The requested feature MUST explicitly test the assigned topic.\n\n"
     )
 
