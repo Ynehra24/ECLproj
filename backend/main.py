@@ -51,6 +51,7 @@ class GenerateRequest(BaseModel):
     subjects: List[str]
     types: Optional[List[str]] = None
     count: Optional[int] = 5
+    difficulty: Optional[str] = "Bachelor"
 
 
 class ExtractTopicsResponse(BaseModel):
@@ -330,7 +331,7 @@ FALLBACK_OPTION_SETS = [
 ]
 
 
-def fallback_questions(subjects: List[str], count: int, force_type: Optional[str] = None) -> List[Question]:
+def fallback_questions(subjects: List[str], count: int, force_type: Optional[str] = None, difficulty: str = "Bachelor") -> List[Question]:
     questions: List[Question] = []
     distributed = distribute_topics(subjects, count)
     indices = list(range(len(FALLBACK_SCENARIO_TEMPLATES)))
@@ -346,13 +347,13 @@ def fallback_questions(subjects: List[str], count: int, force_type: Optional[str
         if force_type == "Coding":
             q = Question(
                 type="Coding",
-                scenario=f"(Topic: {topic}) Implement a function named `process_{topic.lower().replace(' ', '_')}` that takes a parameter `config_data` and returns `True`. \n\nExpected Variables: \n- `config_data`\n- `status_flag`",
+                scenario=f"({difficulty} Level | Topic: {topic}) Implement feature variant #{i+1} by writing a function named `process_{topic.lower().replace(' ', '_')}_v{i+1}` that takes a parameter `config_data` and returns `True`. \n\nExpected Variables: \n- `config_data`\n- `status_flag`",
                 options=None,
                 correctIndex=None,
                 hint="Make sure to define the function, use the required variables, and return True.",
                 reason="This is the standard approach for this feature, ensuring all required variables are used.",
-                answer=f"def process_{topic.lower().replace(' ', '_')}(config_data):\n    status_flag = True\n    return status_flag",
-                starterCode=f"def process_{topic.lower().replace(' ', '_')}(config_data):\n    # Implement here\n    pass",
+                answer=f"def process_{topic.lower().replace(' ', '_')}_v{i+1}(config_data):\n    status_flag = True\n    return status_flag",
+                starterCode=f"def process_{topic.lower().replace(' ', '_')}_v{i+1}(config_data):\n    # Implement here\n    pass",
                 requiredTokens=["def", "return", "config_data", "status_flag"],
                 language="python"
             )
@@ -375,11 +376,11 @@ def fallback_questions(subjects: List[str], count: int, force_type: Optional[str
 # -----------------------------
 # OpenRouter calls
 # -----------------------------
-def call_openrouter(subjects: List[str], types: List[str], count: int) -> List[Question]:
+def call_openrouter(subjects: List[str], types: List[str], count: int, difficulty: str = "Bachelor") -> List[Question]:
     force_type = types[0] if types and len(types) == 1 else None
 
     if not OPENROUTER_API_KEY:
-        return fallback_questions(subjects, count, force_type)
+        return fallback_questions(subjects, count, force_type, difficulty)
 
     allowed_types = ["MCQ", "Fill in the Blanks", "Short Answer", "Coding"]
     types = [t for t in (types or []) if t in allowed_types] or ["MCQ"]
@@ -391,8 +392,9 @@ def call_openrouter(subjects: List[str], types: List[str], count: int) -> List[Q
     prompt = (
         "Generate high-quality varied technical questions.\n"
         "CRITICAL INSTRUCTION 1: You must strictly adhere to the exact topics requested below.\n"
-        "CRITICAL INSTRUCTION 2: Every single question MUST test COMPLETELY DIFFERENT concepts. If the exact same topic appears multiple times, you must address totally distinct aspects, features, or difficulty levels (e.g. beginner vs advanced) to ensure 5 UNIQUE questions.\n"
+        "CRITICAL INSTRUCTION 2: Every single question in the generated array MUST be entirely UNIQUE and test COMPLETELY DIFFERENT concepts. If the exact same topic appears multiple times, you MUST ask for totally distinct features or implementations so no two questions overlap.\n"
         "CRITICAL INSTRUCTION 3: If a topic string combines multiple tools (e.g. 'React and CSS'), the scenario must be a multi-part question intricately blending ALL those tools together.\n"
+        f"CRITICAL INSTRUCTION 4: Scale the complexity and algorithmic depth of the coding tasks to explicitly target a '{difficulty}' difficulty level. A Middle School task should be very simple and fundamental, while a Veteran task should be highly complex and architecture-focused.\n"
         "For each question, the scenario, answer, options, or coding requirements MUST be explicitly and deeply about the assigned topic.\n"
         f"Topics (one per question, use them IN THIS EXACT ORDER): {json.dumps(distributed)}\n"
         f"Allowed types: {json.dumps(types)}\n"
@@ -400,7 +402,8 @@ def call_openrouter(subjects: List[str], types: List[str], count: int) -> List[Q
         "RULE 1: The 'scenario' string MUST begin with the explicit string '(Topic: <assigned_topic>)' so the system can verify adherence.\n"
         "RULE 2: For 'Coding' type questions, DO NOT ask generic math algorithms (like 'sum of numbers' or 'fibonacci') UNLESS the topic explicitly demands it. The code task MUST be deeply and specifically relevant to the exact topic.\n"
         "RULE 3: For 'Coding' type questions, DO NOT create a realistic or situational story. Directly and explicitly state the EXACT feature, function, or component the user needs to implement. Example: 'Implement a function named `fetchUserData` that makes an API call using React Query and returns the data...'\n"
-        "RULE 4: For 'Coding' type questions, the `scenario` plain text MUST explicitly list the exact variable names, function names, and/or parameters the user is expected to use in their implementation. This ensures they know how their logic will be checked.\n\n"
+        "RULE 4: For 'Coding' type questions, the `scenario` plain text MUST explicitly list the exact variable names, function names, and/or parameters the user is expected to use in their implementation. This ensures they know how their logic will be checked.\n"
+        "RULE 5: ALL generated coding questions MUST ask for different logical features. Never repeat the same coding requirement twice in one generation sequence.\n\n"
     )
 
 
@@ -493,7 +496,7 @@ def call_openrouter(subjects: List[str], types: List[str], count: int) -> List[Q
 
     except Exception as e:
         print(f"Generate error: {e}")
-        return fallback_questions(subjects, count, force_type)
+        return fallback_questions(subjects, count, force_type, difficulty)
 
 
 
@@ -643,20 +646,18 @@ def health():
 
 
 @app.post("/generate")
-def generate_scenario(request: GenerateRequest):
-    if not request.subjects:
+def generate_questions(req: GenerateRequest):
+    if not req.subjects:
         raise HTTPException(status_code=400, detail="subjects must not be empty")
 
-    count = request.count or 5
-    types = request.types if request.types is not None else ["MCQ"]
+    count = req.count or 5
+    types = req.types if req.types is not None else ["MCQ"]
 
     print("REQUEST TYPES:", types)
 
-    questions = call_openrouter(request.subjects, types, count)
+    questions = call_openrouter(req.subjects, types, count, req.difficulty)
 
     return {"questions": [q.dict() for q in questions]}
-
-
 
 @app.post("/extract-topics", response_model=ExtractTopicsResponse)
 async def extract_topics(file: UploadFile = File(...)):

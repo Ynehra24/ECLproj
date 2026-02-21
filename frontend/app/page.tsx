@@ -399,6 +399,7 @@ function MainApp() {
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [openSections, setOpenSections] = useState<string[]>([]);
   const [questionTypes, setQuestionTypes] = useState<string[]>(["MCQ"]);
+  const [difficulty, setDifficulty] = useState<string>("Bachelor");
   const [attemptsLeft, setAttemptsLeft] = useState(2);
   const [lastWrongIndex, setLastWrongIndex] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<{ status: "idle" | "correct" | "wrong"; hint?: string }>({ status: "idle" });
@@ -678,6 +679,7 @@ function MainApp() {
             ["MCQ", "Fill in the Blanks", "Short Answer", "Coding"].includes(t)
           ),
           count: 5,
+          difficulty: difficulty,
         }),
       });
 
@@ -1685,6 +1687,21 @@ function MainApp() {
                 );
               })}
             </div>
+          </div>
+
+          <div className="mt-2">
+            <p className="text-xs uppercase tracking-wide text-neutral-500 mb-2">Difficulty</p>
+            <select
+              value={difficulty}
+              onChange={(e) => setDifficulty(e.target.value)}
+              className="w-full bg-neutral-900 border border-neutral-800 text-neutral-200 text-sm rounded-xl px-3 py-2 outline-none focus:border-neutral-600 transition"
+            >
+              <option value="Middle School">Middle School</option>
+              <option value="High School">High School</option>
+              <option value="Bachelor">Bachelor</option>
+              <option value="Working Professional">Working Professional</option>
+              <option value="Veteran">Veteran</option>
+            </select>
           </div>
 
           <motion.button
