@@ -715,9 +715,11 @@ function MainApp() {
   useEffect(() => {
     if (!current || current.type !== "Coding") return;
 
-    // Prefill code once (don’t overwrite user typing)
-    setCode((prev) => (prev && prev.trim().length ? prev : current.starterCode || "// implement solution here"));
-
+    // Prefill code only when current question changes or is first loaded
+    // We don't depend on 'code' state here to avoid interfering with user typing or programmatic updates
+    if (!code || code.trim() === "" || code === "// implement solution here") {
+      setCode(current.starterCode || "// implement solution here");
+    }
     // Infer language from question or topic, unless user manually changed it
     const inferred = (current.language || "").trim().toLowerCase() || topicDefaultLanguage(currentTopic);
     setCodeLanguage((prev) => (languageTouched ? prev : inferred));
@@ -2061,8 +2063,17 @@ function MainApp() {
                         </div>
 
                         {feedback.hint && (
-                          <div className="rounded-2xl p-3 text-sm whitespace-pre-line bg-neutral-900/60 border border-neutral-800 text-neutral-200">
-                            {feedback.hint}
+                          <div className={`rounded-2xl p-4 text-sm whitespace-pre-line border bg-neutral-900/60
+                            ${attemptsLeft <= 0 && feedback.status === "wrong" ? "border-emerald-500/30 text-emerald-100" : "border-neutral-800 text-neutral-200"}
+                          `}>
+                            {attemptsLeft <= 0 && feedback.status === "wrong" && (
+                              <div className="text-emerald-300 font-bold uppercase tracking-widest text-[10px] mb-2 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 inline-block">
+                                Explanation
+                              </div>
+                            )}
+                            <div className="leading-relaxed">
+                              {feedback.hint}
+                            </div>
                           </div>
                         )}
                       </div>
