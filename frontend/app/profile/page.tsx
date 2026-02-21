@@ -30,6 +30,11 @@ export default function ProfilePage() {
     const [activities, setActivities] = useState<Activity[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
+    // Custom Plan state
+    const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+    const [customPlan, setCustomPlan] = useState("");
+    const [planError, setPlanError] = useState("");
+
     useEffect(() => {
         async function loadProfile() {
             try {
@@ -52,6 +57,19 @@ export default function ProfilePage() {
     const handleSignOut = () => {
         clearToken();
         router.push("/");
+    };
+
+    const handleGeneratePlan = async () => {
+        setIsGeneratingPlan(true);
+        setPlanError("");
+        try {
+            const res = await api.generatePlan();
+            setCustomPlan(res.plan_markdown);
+        } catch (err: any) {
+            setPlanError(err.message || "Failed to generate plan");
+        } finally {
+            setIsGeneratingPlan(false);
+        }
     };
 
     const stats = [
@@ -202,9 +220,50 @@ export default function ProfilePage() {
                                 ))}
                             </div>
                             <div className="mt-8 pt-6 border-t border-neutral-800 text-center">
-                                <button className="w-full py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-sm font-semibold transition-colors">
-                                    Generate Custom Plan
-                                </button>
+                                {customPlan ? (
+                                    <div className="text-left bg-neutral-950/80 p-6 rounded-2xl border border-orange-500/20 max-h-[400px] overflow-y-auto custom-scrollbar shadow-inner shadow-black/50">
+                                        <h3 className="text-lg font-bold text-orange-400 mb-4 flex items-center gap-2">
+                                            <span>✨</span> Your Custom Training Plan
+                                        </h3>
+                                        <div className="text-sm text-neutral-300 space-y-3 whitespace-pre-wrap leading-relaxed">
+                                            {customPlan.split('\n').map((line, i) => {
+                                                if (line.startsWith('### ')) return <h3 key={i} className="text-md font-bold text-orange-300 mt-5 pt-2 mb-2">{line.replace('### ', '')}</h3>;
+                                                if (line.startsWith('## ')) return <h2 key={i} className="text-lg font-bold text-orange-400 mt-6 pt-3 mb-3 border-b border-orange-500/20 pb-2">{line.replace('## ', '')}</h2>;
+                                                if (line.startsWith('# ')) return <h1 key={i} className="text-xl font-bold text-orange-500 mt-6 mb-4">{line.replace('# ', '')}</h1>;
+                                                if (line.startsWith('- ')) return <li key={i} className="ml-5 list-disc text-neutral-400">{line.substring(2).replace(/\*\*(.*?)\*\*/g, '$1')}</li>;
+                                                if (line.startsWith('* ')) return <li key={i} className="ml-5 list-disc text-neutral-400">{line.substring(2).replace(/\*\*(.*?)\*\*/g, '$1')}</li>;
+                                                if (line.trim() === '') return <br key={i} />;
+
+                                                // Handle bold text parsing simplisticly for normal lines
+                                                let formattedLine = line;
+                                                // Very naive bold remover for clean UI without dangerouslySetInnerHTML
+                                                formattedLine = formattedLine.replace(/\*\*(.*?)\*\*/g, '$1');
+
+                                                return <span key={i} className="block">{formattedLine}</span>;
+                                            })}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {planError && <div className="text-red-400 text-sm mb-4">{planError}</div>}
+                                        <button
+                                            onClick={handleGeneratePlan}
+                                            disabled={isGeneratingPlan}
+                                            className="w-full py-3 rounded-xl bg-orange-500/10 border border-orange-500/20 hover:bg-orange-500/20 hover:border-orange-500/40 text-orange-400 text-sm font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                        >
+                                            {isGeneratingPlan ? (
+                                                <>
+                                                    <div className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
+                                                    Consulting AI Mentor...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span className="text-lg">✨</span> Generate Custom Plan
+                                                </>
+                                            )}
+                                        </button>
+                                    </>
+                                )}
                             </div>
                         </motion.div>
 
