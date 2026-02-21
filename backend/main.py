@@ -330,7 +330,7 @@ FALLBACK_OPTION_SETS = [
 ]
 
 
-def fallback_questions(subjects: List[str], count: int) -> List[Question]:
+def fallback_questions(subjects: List[str], count: int, force_type: Optional[str] = None) -> List[Question]:
     questions: List[Question] = []
     distributed = distribute_topics(subjects, count)
     indices = list(range(len(FALLBACK_SCENARIO_TEMPLATES)))
@@ -343,15 +343,30 @@ def fallback_questions(subjects: List[str], count: int) -> List[Question]:
         
         scenario_text = FALLBACK_SCENARIO_TEMPLATES[si % len(FALLBACK_SCENARIO_TEMPLATES)].format(topic=topic)
 
-        q = Question(
-            type="MCQ",
-            scenario=scenario_text,
-            options=options,
-            correctIndex=0,
-            hint="Think about reliability, performance, and best practices.",
-            reason=f"{options[0]} directly addresses the root cause.",
-        )
-        _shuffle_mcq_options(q)
+        if force_type == "Coding":
+            q = Question(
+                type="Coding",
+                scenario=f"(Topic: {topic}) Implement a feature. You are given a basic structure. Complete the missing implementation.",
+                options=None,
+                correctIndex=None,
+                hint="Make sure to define the function and return the correct value.",
+                reason="This is the standard approach for this feature.",
+                answer="def example_solution():\n    return 'success'",
+                starterCode="def example_solution():\n    # Implement here\n    pass",
+                requiredTokens=["def", "return"],
+                language="python"
+            )
+        else:
+            q = Question(
+                type="MCQ",
+                scenario=scenario_text,
+                options=options,
+                correctIndex=0,
+                hint="Think about reliability, performance, and best practices.",
+                reason=f"{options[0]} directly addresses the root cause.",
+            )
+            _shuffle_mcq_options(q)
+            
         questions.append(q)
 
     return questions
@@ -361,8 +376,10 @@ def fallback_questions(subjects: List[str], count: int) -> List[Question]:
 # OpenRouter calls
 # -----------------------------
 def call_openrouter(subjects: List[str], types: List[str], count: int) -> List[Question]:
+    force_type = types[0] if types and len(types) == 1 else None
+
     if not OPENROUTER_API_KEY:
-        return fallback_questions(subjects, count)
+        return fallback_questions(subjects, count, force_type)
 
     allowed_types = ["MCQ", "Fill in the Blanks", "Short Answer", "Coding"]
     types = [t for t in (types or []) if t in allowed_types] or ["MCQ"]
@@ -407,9 +424,9 @@ def call_openrouter(subjects: List[str], types: List[str], count: int) -> List[Q
     }
 
     body = {
-        "model": "google/gemini-2.5-pro",
+        "model": "openai/gpt-4o-mini",
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.4,
+        "temperature": 0.5,
     }
 
     def _parse_response(raw: str) -> List[Question]:
@@ -475,7 +492,7 @@ def call_openrouter(subjects: List[str], types: List[str], count: int) -> List[Q
 
     except Exception as e:
         print(f"Generate error: {e}")
-        return fallback_questions(subjects, count)
+        return fallback_questions(subjects, count, force_type)
 
 
 
