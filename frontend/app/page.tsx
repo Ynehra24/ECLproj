@@ -51,6 +51,41 @@ type MLPreview = {
   overfitRisk: number;
 };
 
+type DevOpsPreview = {
+  deployTime: number;
+  clusterHealth: number;
+  errorRate: number;
+  costsPerHr: number;
+};
+
+type SysDesignPreview = {
+  throughput: number;
+  availability: number;
+  nodeCount: number;
+  bottleneckRisk: number;
+};
+
+type MobilePreview = {
+  launchTime: number;
+  bundleSizeKB: number;
+  crashRate: number;
+  batteryDrain: number;
+};
+
+type SecurityPreview = {
+  vulnCount: number;
+  encryptionCoverage: number;
+  authFailures: number;
+  patchAgeDays: number;
+};
+
+type DataEngPreview = {
+  pipelineLatency: number;
+  dataFreshness: number;
+  throughput: number;
+  dataQualityScore: number;
+};
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
 
 // ==========================================
@@ -113,6 +148,12 @@ const topicDefaultLanguage = (topic: string) => {
       return "typescript"; // Next.js/TS
     case "ml":
       return "python";
+    case "devops":
+      return "bash";
+    case "mobile":
+      return "typescript";  // React Native
+    case "dataeng":
+      return "sql";
     default:
       return "typescript";
   }
@@ -388,32 +429,47 @@ function MainApp() {
   });
   const [frontend, setFrontend] = useState<FrontendPreview>({ fps: 55, bundleKB: 420, hydrationMs: 180, reRenders: 3 });
   const [ml, setML] = useState<MLPreview>({ trainLoss: 0.62, valLoss: 0.78, epoch: 3, overfitRisk: 0.35 });
+  const [devops, setDevOps] = useState<DevOpsPreview>({ deployTime: 45, clusterHealth: 0.95, errorRate: 0.02, costsPerHr: 12.5 });
+  const [sysdesign, setSysDesign] = useState<SysDesignPreview>({ throughput: 1200, availability: 0.999, nodeCount: 5, bottleneckRisk: 0.4 });
+  const [mobile, setMobile] = useState<MobilePreview>({ launchTime: 2.1, bundleSizeKB: 8500, crashRate: 0.012, batteryDrain: 0.25 });
+  const [security, setSecurity] = useState<SecurityPreview>({ vulnCount: 8, encryptionCoverage: 0.85, authFailures: 0.04, patchAgeDays: 14 });
+  const [dataeng, setDataEng] = useState<DataEngPreview>({ pipelineLatency: 120, dataFreshness: 10, throughput: 5000, dataQualityScore: 0.88 });
 
-  const [previewControls, setPreviewControls] = useState({
+  const previewControlsInit = {
     backendTraffic: 1,
-    enableCache: true,
+    enableCache: false,
     useReadReplicas: false,
-    enableCodeSplit: true,
-    enableMemo: true,
-    mlReg: true,
+    enableCodeSplit: false,
+    enableMemo: false,
+    mlReg: false,
     mlAug: false,
-  });
+    devOpsAutoScaling: false,
+    sysDesignSharding: false,
+    mobileOfflineSync: false,
+    secMtls: false,
+    dataEngStreaming: false,
+  };
+  const [previewControls, setPreviewControls] = useState(previewControlsInit);
 
   // --------- Refs & Layout State ---------
   // Track previous values so we can highlight changes (orange)
   const prevBackendRef = useRef<BackendPreview>(backend);
   const prevFrontendRef = useRef<FrontendPreview>(frontend);
   const prevMLRef = useRef<MLPreview>(ml);
+  const prevDevOpsRef = useRef<DevOpsPreview>(devops);
+  const prevSysDesignRef = useRef<SysDesignPreview>(sysdesign);
+  const prevMobileRef = useRef<MobilePreview>(mobile);
+  const prevSecurityRef = useRef<SecurityPreview>(security);
+  const prevDataEngRef = useRef<DataEngPreview>(dataeng);
 
-  useEffect(() => {
-    prevBackendRef.current = backend;
-  }, [backend]);
-  useEffect(() => {
-    prevFrontendRef.current = frontend;
-  }, [frontend]);
-  useEffect(() => {
-    prevMLRef.current = ml;
-  }, [ml]);
+  useEffect(() => { prevBackendRef.current = backend; }, [backend]);
+  useEffect(() => { prevFrontendRef.current = frontend; }, [frontend]);
+  useEffect(() => { prevMLRef.current = ml; }, [ml]);
+  useEffect(() => { prevDevOpsRef.current = devops; }, [devops]);
+  useEffect(() => { prevSysDesignRef.current = sysdesign; }, [sysdesign]);
+  useEffect(() => { prevMobileRef.current = mobile; }, [mobile]);
+  useEffect(() => { prevSecurityRef.current = security; }, [security]);
+  useEffect(() => { prevDataEngRef.current = dataeng; }, [dataeng]);
 
   // Resizable split between question and preview
   const [leftPct, setLeftPct] = useState(58);
@@ -488,12 +544,12 @@ function MainApp() {
     }
 
     const hasBackend = activeTopicNames.some((s) =>
-      SUBJECTS.find(sub => sub.name === "Backend" || sub.name === "DevOps" || sub.name === "System Design" || sub.name === "Security" || sub.name === "Data Engineering")?.items.includes(s) ||
+      SUBJECTS.find(sub => sub.name === "Backend")?.items.includes(s) ||
       ["APIs", "Databases", "Caching", "Redis", "Kafka"].includes(s)
     );
 
     const hasFrontend = activeTopicNames.some((s) =>
-      SUBJECTS.find(sub => sub.name === "Frontend" || sub.name === "Mobile")?.items.includes(s) ||
+      SUBJECTS.find(sub => sub.name === "Frontend")?.items.includes(s) ||
       ["React", "CSS", "Web Performance", "SSR", "Hydration"].includes(s)
     );
 
@@ -502,9 +558,20 @@ function MainApp() {
       ["Model Training", "Regularization", "Evaluation"].includes(s)
     );
 
+    const hasDevOps = activeTopicNames.some((s) => SUBJECTS.find(sub => sub.name === "DevOps")?.items.includes(s));
+    const hasSysDesign = activeTopicNames.some((s) => SUBJECTS.find(sub => sub.name === "System Design")?.items.includes(s));
+    const hasMobile = activeTopicNames.some((s) => SUBJECTS.find(sub => sub.name === "Mobile")?.items.includes(s));
+    const hasSecurity = activeTopicNames.some((s) => SUBJECTS.find(sub => sub.name === "Security")?.items.includes(s));
+    const hasDataEng = activeTopicNames.some((s) => SUBJECTS.find(sub => sub.name === "Data Engineering")?.items.includes(s));
+
     if (hasBackend) return "backend";
     if (hasFrontend) return "frontend";
     if (hasML) return "ml";
+    if (hasDevOps) return "devops";
+    if (hasSysDesign) return "sysdesign";
+    if (hasMobile) return "mobile";
+    if (hasSecurity) return "security";
+    if (hasDataEng) return "dataeng";
 
     return "generic";
   }, [selectedSubjects, questions, currentIdx]);
@@ -520,25 +587,63 @@ function MainApp() {
         qps: 180,
         latency: previewControls.useReadReplicas ? 48 : 62,
       });
-    }
-    if (currentTopic === "frontend") {
+    } else if (currentTopic === "frontend") {
       setFrontend({
         fps: 58,
         bundleKB: previewControls.enableCodeSplit ? 360 : 520,
         hydrationMs: previewControls.enableMemo ? 160 : 220,
         reRenders: previewControls.enableMemo ? 2 : 5,
       });
-    }
-    if (currentTopic === "ml") {
+    } else if (currentTopic === "ml") {
       setML({
         trainLoss: 0.55,
         valLoss: previewControls.mlReg ? 0.62 : 0.78,
         epoch: 1,
         overfitRisk: previewControls.mlReg ? 0.25 : 0.45,
       });
+    } else if (currentTopic === "devops") {
+      setDevOps({
+        deployTime: 45,
+        clusterHealth: previewControls.devOpsAutoScaling ? 0.98 : 0.85,
+        errorRate: 0.01,
+        costsPerHr: previewControls.devOpsAutoScaling ? 18.5 : 12.0,
+      });
+    } else if (currentTopic === "sysdesign") {
+      setSysDesign({
+        throughput: previewControls.sysDesignSharding ? 5000 : 1500,
+        availability: 0.999,
+        nodeCount: previewControls.sysDesignSharding ? 12 : 3,
+        bottleneckRisk: previewControls.sysDesignSharding ? 0.1 : 0.6,
+      });
+    } else if (currentTopic === "mobile") {
+      setMobile({
+        launchTime: 1.8,
+        bundleSizeKB: 6500,
+        crashRate: previewControls.mobileOfflineSync ? 0.01 : 0.05,
+        batteryDrain: 0.15,
+      });
+    } else if (currentTopic === "security") {
+      setSecurity({
+        vulnCount: 2,
+        encryptionCoverage: previewControls.secMtls ? 1.0 : 0.6,
+        authFailures: 0.02,
+        patchAgeDays: 5,
+      });
+    } else if (currentTopic === "dataeng") {
+      setDataEng({
+        pipelineLatency: previewControls.dataEngStreaming ? 5 : 120,
+        dataFreshness: previewControls.dataEngStreaming ? 1 : 15,
+        throughput: previewControls.dataEngStreaming ? 25000 : 5000,
+        dataQualityScore: 0.92,
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentTopic, previewControls.enableCache, previewControls.useReadReplicas, previewControls.enableCodeSplit, previewControls.enableMemo, previewControls.mlReg]);
+  }, [
+    currentTopic, previewControls.enableCache, previewControls.useReadReplicas,
+    previewControls.enableCodeSplit, previewControls.enableMemo, previewControls.mlReg,
+    previewControls.devOpsAutoScaling, previewControls.sysDesignSharding, previewControls.mobileOfflineSync,
+    previewControls.secMtls, previewControls.dataEngStreaming
+  ]);
 
   // --------- Scenario Generation (API Call) ---------
   const generateScenario = async () => {
@@ -688,6 +793,81 @@ function MainApp() {
           valLoss: Math.max(0.01, m.valLoss + (previewControls.mlReg ? vl / 2 : vl)),
           epoch: m.epoch + (kind === "correct" ? 1 : 0),
           overfitRisk: Math.min(1, Math.max(0, m.overfitRisk + of)),
+        };
+      });
+    }
+
+    if ((currentTopic as any) === "devops") {
+      setDevOps((d) => {
+        const deployDelta = kind === "correct" ? -5 : kind === "wrongFinal" ? 15 : 8;
+        const healthDelta = kind === "correct" ? 0.05 : kind === "wrongFinal" ? -0.1 : -0.04;
+        const errDelta = kind === "correct" ? -0.01 : kind === "wrongFinal" ? 0.03 : 0.01;
+        const costDelta = previewControls.devOpsAutoScaling ? (kind === "correct" ? -2 : 5) : (kind === "correct" ? -1 : 8);
+        return {
+          deployTime: Math.min(300, Math.max(10, d.deployTime + deployDelta)),
+          clusterHealth: Math.min(1.0, Math.max(0.1, d.clusterHealth + healthDelta)),
+          errorRate: Math.min(0.5, Math.max(0.001, d.errorRate + errDelta)),
+          costsPerHr: Math.min(100, Math.max(5, d.costsPerHr + costDelta))
+        };
+      });
+    }
+
+    if ((currentTopic as any) === "sysdesign") {
+      setSysDesign((s) => {
+        const tputDelta = previewControls.sysDesignSharding ? (kind === "correct" ? 500 : -800) : (kind === "correct" ? 200 : -400);
+        const availDelta = kind === "correct" ? 0.001 : kind === "wrongFinal" ? -0.05 : -0.01;
+        const nodeDelta = previewControls.sysDesignSharding ? (kind === "correct" ? 1 : 2) : 0;
+        const riskDelta = kind === "correct" ? -0.05 : kind === "wrongFinal" ? 0.2 : 0.08;
+        return {
+          throughput: Math.min(50000, Math.max(100, s.throughput + tputDelta)),
+          availability: Math.min(0.9999, Math.max(0.8, s.availability + availDelta)),
+          nodeCount: Math.min(100, Math.max(1, s.nodeCount + nodeDelta)),
+          bottleneckRisk: Math.min(1.0, Math.max(0.01, s.bottleneckRisk + riskDelta))
+        };
+      });
+    }
+
+    if ((currentTopic as any) === "mobile") {
+      setMobile((m) => {
+        const launchDelta = kind === "correct" ? -0.3 : kind === "wrongFinal" ? 0.8 : 0.4;
+        const bundleDelta = kind === "correct" ? -200 : kind === "wrongFinal" ? 1500 : 500;
+        const crashDelta = kind === "correct" ? -0.005 : kind === "wrongFinal" ? 0.02 : 0.01;
+        const batDelta = previewControls.mobileOfflineSync ? (kind === "correct" ? -0.02 : 0.05) : (kind === "correct" ? -0.01 : 0.08);
+        return {
+          launchTime: Math.min(10.0, Math.max(0.5, m.launchTime + launchDelta)),
+          bundleSizeKB: Math.min(50000, Math.max(1000, m.bundleSizeKB + bundleDelta)),
+          crashRate: Math.min(0.2, Math.max(0.001, m.crashRate + crashDelta)),
+          batteryDrain: Math.min(0.8, Math.max(0.05, m.batteryDrain + batDelta))
+        };
+      });
+    }
+
+    if ((currentTopic as any) === "security") {
+      setSecurity((s) => {
+        const vulnDelta = kind === "correct" ? -1 : kind === "wrongFinal" ? 3 : 1;
+        const encDelta = previewControls.secMtls ? (kind === "correct" ? 0.05 : -0.1) : (kind === "correct" ? 0.02 : -0.15);
+        const authDelta = kind === "correct" ? -0.01 : kind === "wrongFinal" ? 0.05 : 0.02;
+        const patchDelta = kind === "correct" ? -1 : kind === "wrongFinal" ? 5 : 2;
+        return {
+          vulnCount: Math.min(50, Math.max(0, s.vulnCount + vulnDelta)),
+          encryptionCoverage: Math.min(1.0, Math.max(0.1, s.encryptionCoverage + encDelta)),
+          authFailures: Math.min(0.5, Math.max(0.001, s.authFailures + authDelta)),
+          patchAgeDays: Math.min(100, Math.max(0, s.patchAgeDays + patchDelta))
+        };
+      });
+    }
+
+    if ((currentTopic as any) === "dataeng") {
+      setDataEng((d) => {
+        const latDelta = previewControls.dataEngStreaming ? (kind === "correct" ? -1 : 5) : (kind === "correct" ? -10 : 30);
+        const freshDelta = previewControls.dataEngStreaming ? (kind === "correct" ? -0.2 : 1) : (kind === "correct" ? -2 : 5);
+        const tputDelta = kind === "correct" ? 1000 : kind === "wrongFinal" ? -3000 : -1000;
+        const scoreDelta = kind === "correct" ? 0.02 : kind === "wrongFinal" ? -0.08 : -0.03;
+        return {
+          pipelineLatency: Math.min(1000, Math.max(1, d.pipelineLatency + latDelta)),
+          dataFreshness: Math.min(1440, Math.max(0.5, d.dataFreshness + freshDelta)),
+          throughput: Math.min(100000, Math.max(100, d.throughput + tputDelta)),
+          dataQualityScore: Math.min(1.0, Math.max(0.1, d.dataQualityScore + scoreDelta))
         };
       });
     }
@@ -1290,9 +1470,159 @@ function MainApp() {
           </div>
         )}
 
+        {/* --- New Missing Topics --- */}
+
+        {currentTopic === "devops" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-xs uppercase tracking-wide text-neutral-400 font-medium">DevOps Metrics</div>
+              <div className="text-xs text-neutral-500">Auto-Scaling {previewControls.devOpsAutoScaling ? "On" : "Off"}</div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <Stat label="Deploy Time" value={devops.deployTime} unit="s" good={devops.deployTime < 60} changed={devops.deployTime !== prevDevOpsRef.current.deployTime} danger={wrongFinal && devops.deployTime > prevDevOpsRef.current.deployTime} />
+              <Stat label="Cluster Health" value={(devops.clusterHealth * 100).toFixed(1)} unit="%" good={devops.clusterHealth > 0.9} changed={devops.clusterHealth !== prevDevOpsRef.current.clusterHealth} danger={wrongFinal && devops.clusterHealth < prevDevOpsRef.current.clusterHealth} />
+              <Stat label="Error Rate" value={(devops.errorRate * 100).toFixed(2)} unit="%" good={devops.errorRate < 0.05} changed={devops.errorRate !== prevDevOpsRef.current.errorRate} danger={wrongFinal && devops.errorRate > prevDevOpsRef.current.errorRate} />
+              <Stat label="Cost" value={devops.costsPerHr.toFixed(2)} unit="$/hr" good={devops.costsPerHr < 20} changed={devops.costsPerHr !== prevDevOpsRef.current.costsPerHr} danger={wrongFinal && devops.costsPerHr > prevDevOpsRef.current.costsPerHr} />
+            </div>
+
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/40 p-3">
+              <div className="text-xs uppercase tracking-wide text-neutral-400 mb-2">Live Errors</div>
+              {wrongFinal ? (
+                <ul className="text-sm text-red-200 space-y-1 list-disc pl-5">
+                  <li>Pipeline deployment frozen.</li>
+                  <li>OOMKilled events spiraling.</li>
+                  <li>Cost explosion detected.</li>
+                </ul>
+              ) : feedback.status === "wrong" ? (
+                <div className="text-sm text-red-200">Warning: Deployment at risk. Consider a safer architectural pattern.</div>
+              ) : (
+                <div className="text-sm text-neutral-400">System green.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {currentTopic === "sysdesign" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-xs uppercase tracking-wide text-neutral-400 font-medium">Sys Design Metrics</div>
+              <div className="text-xs text-neutral-500">Sharding {previewControls.sysDesignSharding ? "On" : "Off"}</div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <Stat label="Throughput" value={sysdesign.throughput} unit="req/s" good={sysdesign.throughput > 2000} changed={sysdesign.throughput !== prevSysDesignRef.current.throughput} danger={wrongFinal && sysdesign.throughput < prevSysDesignRef.current.throughput} />
+              <Stat label="Availability" value={(sysdesign.availability * 100).toFixed(2)} unit="%" good={sysdesign.availability > 0.99} changed={sysdesign.availability !== prevSysDesignRef.current.availability} danger={wrongFinal && sysdesign.availability < prevSysDesignRef.current.availability} />
+              <Stat label="Nodes" value={sysdesign.nodeCount} good={sysdesign.nodeCount < 10} changed={sysdesign.nodeCount !== prevSysDesignRef.current.nodeCount} danger={wrongFinal && sysdesign.nodeCount > prevSysDesignRef.current.nodeCount} />
+              <Stat label="Bottleneck Risk" value={(sysdesign.bottleneckRisk * 100).toFixed(0)} unit="%" good={sysdesign.bottleneckRisk < 0.3} changed={sysdesign.bottleneckRisk !== prevSysDesignRef.current.bottleneckRisk} danger={wrongFinal && sysdesign.bottleneckRisk > prevSysDesignRef.current.bottleneckRisk} />
+            </div>
+
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/40 p-3">
+              <div className="text-xs uppercase tracking-wide text-neutral-400 mb-2">Live Errors</div>
+              {wrongFinal ? (
+                <ul className="text-sm text-red-200 space-y-1 list-disc pl-5">
+                  <li>Single point of failure triggered outages.</li>
+                  <li>Split-brain scenario in distributed cluster.</li>
+                </ul>
+              ) : feedback.status === "wrong" ? (
+                <div className="text-sm text-red-200">Warning: Availability dropping. Try scaling strategies.</div>
+              ) : (
+                <div className="text-sm text-neutral-400">System robust.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {currentTopic === "mobile" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-xs uppercase tracking-wide text-neutral-400 font-medium">Mobile Metrics</div>
+              <div className="text-xs text-neutral-500">Offline Sync {previewControls.mobileOfflineSync ? "On" : "Off"}</div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <Stat label="Launch Time" value={mobile.launchTime.toFixed(1)} unit="s" good={mobile.launchTime < 3.0} changed={mobile.launchTime !== prevMobileRef.current.launchTime} danger={wrongFinal && mobile.launchTime > prevMobileRef.current.launchTime} />
+              <Stat label="Bundle Size" value={mobile.bundleSizeKB} unit="KB" good={mobile.bundleSizeKB < 10000} changed={mobile.bundleSizeKB !== prevMobileRef.current.bundleSizeKB} danger={wrongFinal && mobile.bundleSizeKB > prevMobileRef.current.bundleSizeKB} />
+              <Stat label="Crash Rate" value={(mobile.crashRate * 100).toFixed(2)} unit="%" good={mobile.crashRate < 0.02} changed={mobile.crashRate !== prevMobileRef.current.crashRate} danger={wrongFinal && mobile.crashRate > prevMobileRef.current.crashRate} />
+              <Stat label="Battery Drain" value={(mobile.batteryDrain * 100).toFixed(0)} unit="%" good={mobile.batteryDrain < 0.2} changed={mobile.batteryDrain !== prevMobileRef.current.batteryDrain} danger={wrongFinal && mobile.batteryDrain > prevMobileRef.current.batteryDrain} />
+            </div>
+
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/40 p-3">
+              <div className="text-xs uppercase tracking-wide text-neutral-400 mb-2">Live Errors</div>
+              {wrongFinal ? (
+                <ul className="text-sm text-red-200 space-y-1 list-disc pl-5">
+                  <li>ANR (App Not Responding) spikes.</li>
+                  <li>Background process drain detected.</li>
+                </ul>
+              ) : feedback.status === "wrong" ? (
+                <div className="text-sm text-red-200">Warning: Performance hurting UX. Try a lighter weight approach.</div>
+              ) : (
+                <div className="text-sm text-neutral-400">App stable.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {currentTopic === "security" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-xs uppercase tracking-wide text-neutral-400 font-medium">Security Metrics</div>
+              <div className="text-xs text-neutral-500">mTLS {previewControls.secMtls ? "On" : "Off"}</div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <Stat label="Vulns" value={security.vulnCount} good={security.vulnCount === 0} changed={security.vulnCount !== prevSecurityRef.current.vulnCount} danger={wrongFinal && security.vulnCount > prevSecurityRef.current.vulnCount} />
+              <Stat label="Encryption" value={(security.encryptionCoverage * 100).toFixed(0)} unit="%" good={security.encryptionCoverage > 0.9} changed={security.encryptionCoverage !== prevSecurityRef.current.encryptionCoverage} danger={wrongFinal && security.encryptionCoverage < prevSecurityRef.current.encryptionCoverage} />
+              <Stat label="Auth Fails" value={(security.authFailures * 100).toFixed(2)} unit="%" good={security.authFailures < 0.05} changed={security.authFailures !== prevSecurityRef.current.authFailures} danger={wrongFinal && security.authFailures > prevSecurityRef.current.authFailures} />
+              <Stat label="Patch Age" value={security.patchAgeDays} unit="days" good={security.patchAgeDays < 7} changed={security.patchAgeDays !== prevSecurityRef.current.patchAgeDays} danger={wrongFinal && security.patchAgeDays > prevSecurityRef.current.patchAgeDays} />
+            </div>
+
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/40 p-3">
+              <div className="text-xs uppercase tracking-wide text-neutral-400 mb-2">Live Errors</div>
+              {wrongFinal ? (
+                <ul className="text-sm text-red-200 space-y-1 list-disc pl-5">
+                  <li>Critical zero-day exposed.</li>
+                  <li>Unauthorized data exfiltration detected.</li>
+                </ul>
+              ) : feedback.status === "wrong" ? (
+                <div className="text-sm text-red-200">Warning: Attack surface expanded. Try securing endpoints.</div>
+              ) : (
+                <div className="text-sm text-neutral-400">Posture strong.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {currentTopic === "dataeng" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-xs uppercase tracking-wide text-neutral-400 font-medium">Data Eng Metrics</div>
+              <div className="text-xs text-neutral-500">Streaming {previewControls.dataEngStreaming ? "On" : "Off"}</div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <Stat label="Latency" value={dataeng.pipelineLatency} unit="s" good={dataeng.pipelineLatency < 60} changed={dataeng.pipelineLatency !== prevDataEngRef.current.pipelineLatency} danger={wrongFinal && dataeng.pipelineLatency > prevDataEngRef.current.pipelineLatency} />
+              <Stat label="Freshness" value={dataeng.dataFreshness} unit="m" good={dataeng.dataFreshness < 15} changed={dataeng.dataFreshness !== prevDataEngRef.current.dataFreshness} danger={wrongFinal && dataeng.dataFreshness > prevDataEngRef.current.dataFreshness} />
+              <Stat label="Throughput" value={dataeng.throughput} unit="evt/s" good={dataeng.throughput > 10000} changed={dataeng.throughput !== prevDataEngRef.current.throughput} danger={wrongFinal && dataeng.throughput < prevDataEngRef.current.throughput} />
+              <Stat label="Quality" value={(dataeng.dataQualityScore * 100).toFixed(0)} unit="%" good={dataeng.dataQualityScore > 0.95} changed={dataeng.dataQualityScore !== prevDataEngRef.current.dataQualityScore} danger={wrongFinal && dataeng.dataQualityScore < prevDataEngRef.current.dataQualityScore} />
+            </div>
+
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/40 p-3">
+              <div className="text-xs uppercase tracking-wide text-neutral-400 mb-2">Live Errors</div>
+              {wrongFinal ? (
+                <ul className="text-sm text-red-200 space-y-1 list-disc pl-5">
+                  <li>Pipeline deadlock detected.</li>
+                  <li>Schema validation failure in ingestion.</li>
+                </ul>
+              ) : feedback.status === "wrong" ? (
+                <div className="text-sm text-red-200">Warning: Data freshness decaying. Needs optimization.</div>
+              ) : (
+                <div className="text-sm text-neutral-400">Pipeline flowing smoothly.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* --- End New Missing Topics --- */}
+
         {currentTopic === "generic" && (
           <div className="space-y-3">
-            <div className="text-sm text-neutral-400">Pick a Frontend/Backend/ML topic to get a richer preview.</div>
+            <div className="text-sm text-neutral-400">Pick a Frontend/Backend/ML/DevOps/Mobile/Security/System Design/DataEng topic to get a richer preview.</div>
           </div>
         )}
       </div>
