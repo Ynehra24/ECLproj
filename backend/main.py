@@ -495,7 +495,9 @@ def call_openrouter(subjects: List[str], types: List[str], count: int, difficult
         return questions
 
     except Exception as e:
+        import traceback
         print(f"Generate error: {e}")
+        traceback.print_exc()
         return fallback_questions(subjects, count, force_type, difficulty)
 
 
