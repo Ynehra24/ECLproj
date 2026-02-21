@@ -307,15 +307,15 @@ def match_topics_from_text(text: str) -> List[str]:
 # -----------------------------
 # Fallback Questions
 # -----------------------------
-FALLBACK_SCENARIOS = [
-    "A production API is experiencing latency spikes under load.",
-    "A distributed service intermittently fails during peak traffic.",
-    "A Kubernetes cluster is restarting pods unexpectedly.",
-    "A database query locks rows and delays transactions.",
-    "A frontend app freezes after a state update cascade.",
-    "An ML model's validation loss is diverging from training loss.",
-    "A CI/CD pipeline fails intermittently on the deploy step.",
-    "A microservice cannot discover its downstream dependencies.",
+FALLBACK_SCENARIO_TEMPLATES = [
+    "(Topic: {topic}) You need to optimize the {topic} layer of your application. Which improvement is most appropriate?",
+    "(Topic: {topic}) A recent deployment involving {topic} caused a regression. How do you resolve it?",
+    "(Topic: {topic}) You are tasked with scaling the {topic} infrastructure. What is the best approach?",
+    "(Topic: {topic}) Security vulnerabilities were found in the {topic} implementation. How should they be mitigated?",
+    "(Topic: {topic}) The development team is struggling with {topic} maintainability. What architectural pattern helps?",
+    "(Topic: {topic}) {topic} is consuming too much memory/CPU. What is the standard optimization technique?",
+    "(Topic: {topic}) Integration tests for {topic} are flaky. What is the most likely root cause?",
+    "(Topic: {topic}) A new team member asks for the best practice when configuring {topic}. What do you recommend?"
 ]
 
 FALLBACK_OPTION_SETS = [
@@ -333,17 +333,19 @@ FALLBACK_OPTION_SETS = [
 def fallback_questions(subjects: List[str], count: int) -> List[Question]:
     questions: List[Question] = []
     distributed = distribute_topics(subjects, count)
-    indices = list(range(len(FALLBACK_SCENARIOS)))
+    indices = list(range(len(FALLBACK_SCENARIO_TEMPLATES)))
     random.shuffle(indices)
 
     for i in range(count):
         si = indices[i % len(indices)]
         options = FALLBACK_OPTION_SETS[si].copy()
         topic = distributed[i] if i < len(distributed) else random.choice(subjects)
+        
+        scenario_text = FALLBACK_SCENARIO_TEMPLATES[si % len(FALLBACK_SCENARIO_TEMPLATES)].format(topic=topic)
 
         q = Question(
             type="MCQ",
-            scenario=f"(Topic: {topic}) You need to optimize the {topic} layer of your application. Which improvement is most appropriate?",
+            scenario=scenario_text,
             options=options,
             correctIndex=0,
             hint="Think about reliability, performance, and best practices.",
