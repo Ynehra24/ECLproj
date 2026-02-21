@@ -10,7 +10,7 @@ class ActivityBase(BaseModel):
 
 # Properties to create an activity
 class ActivityCreate(ActivityBase):
-    pass
+    difficulty: Optional[str] = "Bachelor"
 
 # Activity returned to client
 class Activity(ActivityBase):
@@ -25,6 +25,8 @@ class Activity(ActivityBase):
 class UserBase(BaseModel):
     email: EmailStr
     full_name: str
+    exp: int = 0
+    profile_picture: Optional[str] = None
 
 # Properties to create a user
 class UserCreate(UserBase):

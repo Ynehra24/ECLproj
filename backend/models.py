@@ -10,6 +10,8 @@ class User(Base):
     full_name = Column(String, index=True)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
+    exp = Column(Integer, default=0)
+    profile_picture = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     activities = relationship("UserActivity", back_populates="owner")
