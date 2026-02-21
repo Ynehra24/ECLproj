@@ -328,13 +328,12 @@ def fallback_questions(subjects: List[str], count: int) -> List[Question]:
 
     for i in range(count):
         si = indices[i % len(indices)]
-        scenario = FALLBACK_SCENARIOS[si]
         options = FALLBACK_OPTION_SETS[si].copy()
         topic = distributed[i] if i < len(distributed) else random.choice(subjects)
 
         q = Question(
             type="MCQ",
-            scenario=f"{scenario} (Topic: {topic}) Which improvement is most appropriate?",
+            scenario=f"(Topic: {topic}) You need to optimize the {topic} layer of your application. Which improvement is most appropriate?",
             options=options,
             correctIndex=0,
             hint="Think about reliability, performance, and best practices.",
@@ -361,10 +360,13 @@ def call_openrouter(subjects: List[str], types: List[str], count: int) -> List[Q
     force_type = types[0] if len(types) == 1 else None
 
     prompt = (
-        "Generate high-quality varied technical questions.\n\n"
-        f"Topics (one per question, use them IN THIS ORDER): {json.dumps(distributed)}\n"
+        "Generate high-quality varied technical questions.\n"
+        "CRITICAL INSTRUCTION: You must strictly adhere to the exact topics requested below.\n"
+        "For each question, the scenario, answer, options, or coding requirements MUST be explicitly and deeply about the assigned topic.\n"
+        f"Topics (one per question, use them IN THIS EXACT ORDER): {json.dumps(distributed)}\n"
         f"Allowed types: {json.dumps(types)}\n"
         f"Total questions: {count}\n\n"
+        "RULE: The 'scenario' string MUST begin with the explicit string '(Topic: <assigned_topic>)' so the system can verify adherence.\n\n"
     )
 
     if force_type:
@@ -373,6 +375,7 @@ def call_openrouter(subjects: List[str], types: List[str], count: int) -> List[Q
     prompt += (
         "Return ONLY a valid JSON array.\n"
         "No markdown. No explanations.\n"
+        "If a question is of type 'Coding', you MUST optionally include a 'language' string field indicating the detected programming language (e.g. 'python', 'typescript', 'javascript', 'sql', 'bash', 'css', 'html').\n"
     )
 
     headers = {
@@ -383,7 +386,7 @@ def call_openrouter(subjects: List[str], types: List[str], count: int) -> List[Q
     body = {
         "model": "openai/gpt-4o-mini",
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.8,
+        "temperature": 0.5, # Lowered temperature for stricter adherence
     }
 
     def _parse_response(raw: str) -> List[Question]:
@@ -422,7 +425,11 @@ def call_openrouter(subjects: List[str], types: List[str], count: int) -> List[Q
                 q.answer = None
 
                 if not q.language:
+                    # Provide a fallback just in case the LLM doesn't supply it
                     q.language = "typescript"
+
+                # Standardize language strings to match frontend IDs
+                q.language = q.language.lower().strip()
 
                 if not q.starterCode:
                     q.starterCode = "// implement solution here"
