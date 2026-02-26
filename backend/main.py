@@ -1,4 +1,6 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict
@@ -45,6 +47,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = exc.errors()
+    print(f"Validation Error at {request.url.path}: {errors}")
+    return JSONResponse(
+        status_code=400,
+        content={"detail": "Validation Error", "errors": errors},
+    )
 
 # -----------------------------
 # Models
@@ -717,20 +728,29 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 @app.post("/api/auth/register", response_model=schemas.User)
 def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(models.User).filter(models.User.email == user.email).first()
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    hashed_password = auth.get_password_hash(user.password)
-    new_user = models.User(
-        email=user.email,
-        full_name=user.full_name,
-        hashed_password=hashed_password
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return new_user
+    print(f"Registering user: {user.email}")
+    try:
+        db_user = db.query(models.User).filter(models.User.email == user.email).first()
+        if db_user:
+            print(f"Registration failed: Email {user.email} already exists")
+            raise HTTPException(status_code=400, detail=f"Email {user.email} is already registered. Please try logging in.")
+        
+        hashed_password = auth.get_password_hash(user.password)
+        new_user = models.User(
+            email=user.email,
+            full_name=user.full_name,
+            hashed_password=hashed_password
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        print(f"User {user.email} registered successfully")
+        return new_user
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        print(f"Unexpected error during registration: {str(e)}")
+        raise HTTPException(status_code=500, detail="An internal server error occurred during registration")
 
 
 @app.post("/api/auth/login", response_model=schemas.Token)
