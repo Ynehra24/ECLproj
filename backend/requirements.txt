@@ -9,3 +9,4 @@ passlib
 python-multipart
 psycopg2
 pydantic[email]
+bcrypt
